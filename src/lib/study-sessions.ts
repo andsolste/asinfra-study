@@ -4,7 +4,8 @@ import type { Subject } from './subjects.ts'
 
 export type WorkSegment = { id: string; session_id: string; started_at: string; ended_at: string | null }
 export type StudySession = { id: string; subject_id: string | null; description: string; started_at: string; ended_at: string | null }
-export type SessionSnapshot = { session: StudySession; subject: Subject | null; segments: WorkSegment[]; server_time: string }
+export type SessionRecord = { session: StudySession; subject: Subject | null; segments: WorkSegment[] }
+export type SessionSnapshot = SessionRecord & { server_time: string }
 export type SessionCommand = {
   action: 'start' | 'pause' | 'resume' | 'stop'
   sessionId: string
@@ -22,13 +23,18 @@ function id(value: unknown): string {
   return value
 }
 function timestamp(value: unknown): string {
-  if (typeof value !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('Ugyldige tidspunkt.')
-  return value
+  const match = typeof value === 'string'
+    ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.exec(value) : null
+  if (!match || !Number.isFinite(Date.parse(value as string))) throw new Error('Ugyldige tidspunkt.')
+  const date = new Date(0)
+  date.setUTCFullYear(+match[1], +match[2] - 1, +match[3])
+  if (date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3]
+    || +match[4] > 23 || +match[5] > 59 || +match[6] > 59) throw new Error('Ugyldige tidspunkt.')
+  return value as string
 }
 const nullableTime = (value: unknown) => value === null ? null : timestamp(value)
 
-export function mapSessionSnapshot(value: unknown): SessionSnapshot | null {
-  if (value === null) return null
+export function mapSessionRecord(value: unknown): SessionRecord {
   const row = record(value), source = record(row.session)
   const session: StudySession = {
     id: id(source.id), subject_id: source.subject_id === null ? null : id(source.subject_id),
@@ -53,7 +59,12 @@ export function mapSessionSnapshot(value: unknown): SessionSnapshot | null {
   if (session.ended_at && Date.parse(session.ended_at) < Date.parse(session.started_at)) throw new Error('Ugyldige tidspunkt.')
   const subject = row.subject === null ? null : mapSubject(row.subject)
   if (subject && subject.id !== session.subject_id) throw new Error('Ugyldig fagkobling.')
-  return { session, subject, segments, server_time: timestamp(row.server_time) }
+  return { session, subject, segments }
+}
+
+export function mapSessionSnapshot(value: unknown): SessionSnapshot | null {
+  if (value === null) return null
+  return { ...mapSessionRecord(value), server_time: timestamp(record(value).server_time) }
 }
 
 export function sessionStatus(snapshot: SessionSnapshot) {
