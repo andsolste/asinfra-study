@@ -28,14 +28,14 @@ export default function StudyHistory({ data, subjects }: Props) {
     heading.current?.focus()
   }
   return <>
-    <section className="history-section" aria-labelledby="week-title" aria-busy={data.weekStatus === 'loading'}>
-      <h2 id="week-title">Ukestatistikk</h2>
+    <section className="dashboard-panel week-panel" aria-labelledby="week-title" aria-busy={data.weekStatus === 'loading'}>
+      <header className="panel-heading"><div><p className="section-label">Denne perioden</p><h2 id="week-title">Ukestatistikk</h2></div></header>
       <p className="week-label">{weekLabel(data.week)}</p>
       <p className="timer-meta">Mandag til søndag · {zone || 'Lokal tidssone'} · Kun ferdige økter</p>
-      <div className="subject-actions">
-        <button type="button" className="text-button" disabled={busy} onClick={() => void data.selectWeek(shiftWeek(data.week, -1))}>← Forrige uke</button>
-        <button type="button" className="text-button" disabled={busy} onClick={() => void data.selectWeek(localWeek())}>Denne uken</button>
-        <button type="button" className="text-button" disabled={busy} onClick={() => void data.selectWeek(shiftWeek(data.week, 1))}>Neste uke →</button>
+      <div className="week-controls" role="group" aria-label="Velg uke">
+        <button type="button" className="secondary-button" aria-label="Forrige uke" disabled={busy} onClick={() => void data.selectWeek(shiftWeek(data.week, -1))}>←</button>
+        <button type="button" className="secondary-button" aria-pressed={data.week.from === localWeek().from} disabled={busy} onClick={() => void data.selectWeek(localWeek())}>Denne uken</button>
+        <button type="button" className="secondary-button" aria-label="Neste uke" disabled={busy} onClick={() => void data.selectWeek(shiftWeek(data.week, 1))}>→</button>
       </div>
       {data.weekStatus === 'loading' && <p role="status">Henter ukestatistikk …</p>}
       {data.weekError && <div role="alert"><p className="auth-error">{data.weekError}</p>
@@ -49,9 +49,9 @@ export default function StudyHistory({ data, subjects }: Props) {
         {!totals.total && <p>Ingen registrert arbeidstid denne uken.</p>}
       </div>}
     </section>
-    <section className="history-section" aria-labelledby="history-title" aria-busy={busy || data.status === 'loading' || data.loadingMore}>
+    <section className="dashboard-panel history-section" aria-labelledby="history-title" aria-busy={busy || data.status === 'loading' || data.loadingMore}>
       <header className="subjects-heading">
-        <h2 id="history-title" ref={heading} tabIndex={-1}>Studiehistorikk</h2>
+        <div><p className="section-label">Fullførte økter</p><h2 id="history-title" ref={heading} tabIndex={-1}>Studiehistorikk</h2></div>
         <button type="button" className="text-button" disabled={busy || editing !== null}
           onClick={() => void data.reload()}>Hent på nytt</button>
       </header>
@@ -64,28 +64,34 @@ export default function StudyHistory({ data, subjects }: Props) {
       {data.status === 'ready' && !data.rows.length && <p>Ingen ferdige studieøkter ennå. Stopp en økt for å lagre den her.</p>}
       <ul className="history-list">{data.rows.map(entry => <li key={entry.session.id}>
         <article aria-labelledby={'history-' + entry.session.id}>
-          {entry.subject?.code && <p className="subject-code">{entry.subject.code}</p>}
-          <h3 id={'history-' + entry.session.id}>{entry.subject?.name ?? 'Uten fag / tidligere fag er slettet'}</h3>
-          <p className="history-date"><time dateTime={entry.session.started_at}>{localTime(entry.session.started_at)}</time>
-            {' → '}<time dateTime={entry.session.ended_at}>{localTime(entry.session.ended_at)}</time></p>
-          {entry.session.description && <p className="timer-description">{entry.session.description}</p>}
-          <p className="history-work">Arbeidstid: {formatDuration(workMilliseconds(entry.segments))}</p>
-          {!entry.segments.length ? <p className="timer-meta">Ingen registrerte arbeidsperioder. Arbeidstid vises som 0.</p>
-            : <details className="history-periods"><summary>{entry.segments.length} {entry.segments.length === 1 ? 'arbeidsperiode' : 'arbeidsperioder'}</summary>
-              <ol>{entry.segments.map(segment => <li key={segment.id}>
-                <time dateTime={segment.started_at}>{localTime(segment.started_at)}</time>{' → '}
-                <time dateTime={segment.ended_at}>{localTime(segment.ended_at)}</time>
-              </li>)}</ol>
-            </details>}
-          {editing === entry.session.id ? <HistoryForm key={entry.session.id} entry={entry} subjects={subjects.subjects}
+          <header className="history-entry-heading">
+            <div className="history-entry-info">
+              {entry.subject?.code && <p className="subject-code">{entry.subject.code}</p>}
+              <h3 id={'history-' + entry.session.id}>{entry.subject?.name ?? 'Uten fag / tidligere fag er slettet'}</h3>
+              <p className="history-date"><time dateTime={entry.session.started_at}>{localTime(entry.session.started_at)}</time>
+                {' → '}<time dateTime={entry.session.ended_at}>{localTime(entry.session.ended_at)}</time></p>
+              {entry.session.description && <p className="history-description">{entry.session.description}</p>}
+            </div>
+            <p className="history-work"><span>Arbeidstid</span><strong>{formatDuration(workMilliseconds(entry.segments))}</strong></p>
+          </header>
+          <div className="history-entry-footer">
+            {!entry.segments.length ? <p className="timer-meta">Ingen registrerte arbeidsperioder. Arbeidstid vises som 0.</p>
+              : <details className="history-periods"><summary>{entry.segments.length} {entry.segments.length === 1 ? 'arbeidsperiode' : 'arbeidsperioder'}</summary>
+                <ol>{entry.segments.map(segment => <li key={segment.id}>
+                  <time dateTime={segment.started_at}>{localTime(segment.started_at)}</time>{' → '}
+                  <time dateTime={segment.ended_at}>{localTime(segment.ended_at)}</time>
+                </li>)}</ol>
+              </details>}
+            {editing !== entry.session.id && <div className="subject-actions">
+                <button type="button" className="text-button" disabled={disabled || editing !== null || subjects.status !== 'ready'}
+                  aria-label={`Rediger økt fra ${localTime(entry.session.started_at)}`} onClick={() => setEditing(entry.session.id)}>Rediger økt</button>
+                <button type="button" className="text-button danger-text" disabled={disabled || editing !== null}
+                  aria-label={`Slett økt fra ${localTime(entry.session.started_at)}`} onClick={() => void remove(entry)}>Slett økt</button>
+              </div>}
+          </div>
+          {editing === entry.session.id && <HistoryForm key={entry.session.id} entry={entry} subjects={subjects.subjects}
             busy={busy} disabled={disabled || subjects.status !== 'ready' || subjects.busy}
-            onSave={input => data.edit(entry.session.id, input)} onClose={closeForm} />
-            : <div className="subject-actions">
-              <button type="button" className="text-button" disabled={disabled || editing !== null || subjects.status !== 'ready'}
-                aria-label={`Rediger økt fra ${localTime(entry.session.started_at)}`} onClick={() => setEditing(entry.session.id)}>Rediger økt</button>
-              <button type="button" className="text-button" disabled={disabled || editing !== null}
-                aria-label={`Slett økt fra ${localTime(entry.session.started_at)}`} onClick={() => void remove(entry)}>Slett økt</button>
-            </div>}
+            onSave={input => data.edit(entry.session.id, input)} onClose={closeForm} />}
         </article>
       </li>)}</ul>
       {data.hasMore && <button type="button" disabled={disabled || editing !== null} onClick={() => void data.more()}>
