@@ -1,11 +1,11 @@
 import type { createHistoryApi, HistoryEdit, HistoryEntry } from './study-history.ts'
-import { localWeek } from './history-time.ts'
-import type { TimeInterval } from './history-time.ts'
+import { localPeriod } from './statistics.ts'
+import type { StatisticsPeriod } from './statistics.ts'
 
 type Status = 'loading' | 'ready' | 'error'
 type State = {
   rows: HistoryEntry[]; status: Status; listError: string | null; hasMore: boolean; loadingMore: boolean
-  week: TimeInterval; weekRows: HistoryEntry[]; weekStatus: Status; weekError: string | null
+  period: StatisticsPeriod; statisticsRows: HistoryEntry[]; statisticsStatus: Status; statisticsError: string | null
   mutation: 'saving' | 'deleting' | null; error: string | null; notice: string
 }
 type Api = ReturnType<typeof createHistoryApi>
@@ -13,12 +13,12 @@ const pageSize = 25
 
 // Shared by React and tests. Each read has its own cancellation lane.
 // Confirmed AND uncertain writes re-fetch both views; no optimistic deletion.
-export function createHistoryStore(api: Api, initialWeek = localWeek()) {
+export function createHistoryStore(api: Api, initialPeriod = localPeriod('week')) {
   let state: State = { rows: [], status: 'loading', listError: null, hasMore: false, loadingMore: false,
-    week: initialWeek, weekRows: [], weekStatus: 'loading', weekError: null, mutation: null, error: null, notice: '' }
+    period: initialPeriod, statisticsRows: [], statisticsStatus: 'loading', statisticsError: null, mutation: null, error: null, notice: '' }
   let connected = false
-  const requests: { list: AbortController | null; week: AbortController | null; write: AbortController | null } =
-    { list: null, week: null, write: null }
+  const requests: { list: AbortController | null; statistics: AbortController | null; write: AbortController | null } =
+    { list: null, statistics: null, write: null }
   const listeners = new Set<() => void>()
   function update(values: Partial<State>) { state = { ...state, ...values }; listeners.forEach(listener => listener()) }
   function cancel(lane: keyof typeof requests) { requests[lane]?.abort(); requests[lane] = null }
@@ -48,35 +48,35 @@ export function createHistoryStore(api: Api, initialWeek = localWeek()) {
       if (requests.list === controller) { requests.list = null; update({ loadingMore: false }) }
     }
   }
-  async function loadWeek() {
+  async function loadStatistics() {
     if (!connected) return
-    cancel('week')
+    cancel('statistics')
     const controller = new AbortController()
-    requests.week = controller
-    const interval = state.week
+    requests.statistics = controller
+    const interval = state.period
     const timeout = setTimeout(() => controller.abort(), 30000)
-    update({ weekRows: [], weekStatus: 'loading', weekError: null })
+    update({ statisticsRows: [], statisticsStatus: 'loading', statisticsError: null })
     try {
-      const rows = await api.week(interval, controller.signal)
-      if (requests.week === controller) update({ weekRows: rows, weekStatus: 'ready' })
+      const rows = await api.range(interval, controller.signal)
+      if (requests.statistics === controller) update({ statisticsRows: rows, statisticsStatus: 'ready' })
     } catch {
-      if (requests.week === controller) update({ weekStatus: 'error', weekError: 'Kunne ikke hente ukestatistikken. Prøv igjen.' })
+      if (requests.statistics === controller) update({ statisticsStatus: 'error', statisticsError: 'Kunne ikke hente statistikken. Prøv igjen.' })
     } finally {
       clearTimeout(timeout)
-      if (requests.week === controller) requests.week = null
+      if (requests.statistics === controller) requests.statistics = null
     }
   }
   async function refresh() {
     if (!connected || requests.write) return
-    await Promise.all([loadList(), loadWeek()])
+    await Promise.all([loadList(), loadStatistics()])
   }
   async function mutate(operation: (signal: AbortSignal) => Promise<unknown>, kind: 'saving' | 'deleting') {
     if (!connected || requests.write || state.mutation || state.status !== 'ready' || requests.list) return false
-    cancel('list'); cancel('week')
+    cancel('list'); cancel('statistics')
     const controller = new AbortController()
     requests.write = controller
     const timeout = setTimeout(() => controller.abort(), 15000)
-    update({ mutation: kind, error: null, notice: '', weekStatus: 'loading', weekRows: [] })
+    update({ mutation: kind, error: null, notice: '', statisticsStatus: 'loading', statisticsRows: [] })
     let confirmed = false
     try {
       await operation(controller.signal)
@@ -102,9 +102,14 @@ export function createHistoryStore(api: Api, initialWeek = localWeek()) {
     getSnapshot: () => state,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener) } },
     connect() { connected = true; update({ mutation: null }); void refresh() },
-    disconnect() { connected = false; cancel('list'); cancel('week'); cancel('write') },
+    disconnect() { connected = false; cancel('list'); cancel('statistics'); cancel('write') },
     refresh, more: () => loadList(true),
-    async selectWeek(week: TimeInterval) { if (connected) { update({ week }); await loadWeek() } },
+    async selectPeriod(period: StatisticsPeriod) {
+      if (connected && !state.mutation) {
+        update({ period, statisticsRows: [], statisticsStatus: 'loading', statisticsError: null })
+        await loadStatistics()
+      }
+    },
     edit: (sessionId: string, input: HistoryEdit) => mutate(signal => api.edit(sessionId, input, signal), 'saving'),
     remove: (sessionId: string) => mutate(signal => api.remove(sessionId, signal), 'deleting'),
   }
