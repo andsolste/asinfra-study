@@ -1,41 +1,48 @@
 # ASInfra Study
 
-Selvstendig React/TypeScript-frontend for **https://study.asinfra.no/**.
-Hovednettstedet ligger fortsatt i [andsolste/asinfra](https://github.com/andsolste/asinfra).
+Study registrerer studiearbeid og viser faktisk arbeidstid, historikk og ukestatistikk.
+Produksjon: [study.asinfra.no](https://study.asinfra.no/).
 
-## Opprinnelse og ansvarsdeling
+## Arkitektur og repoansvar
 
-Frontend er trukket ut fra `apps/study/` i `andsolste/asinfra`, commit
-`495b67aea357c309e62d3c9916eb346e1457200f` (merge av studieøkter i PR #18).
-Dette repoet starter med en extraction-commit; hovedrepoets historikk er ikke omskrevet.
-Senere frontend-endringer gjøres her.
+- **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier
+  React/TypeScript/Vite-frontenden, frontendtestene og Pages-deploymenten til `study.asinfra.no`.
+- **[andsolste/asinfra/supabase](https://github.com/andsolste/asinfra/tree/main/supabase)**
+  er canonical backend: config, migrations, RLS, constraints, RPC-er og backendtester.
+  Database- og RLS-endringer gjøres med egen PR/review der, aldri i dette repoet.
 
-**Canonical backend er [asinfra/supabase/](https://github.com/andsolste/asinfra/tree/main/supabase).**
-Samme Supabase-prosjekt/Auth, brukere, fag, økter, segmenter og RLS brukes videre.
-Dette repoet inneholder ingen Supabase-config eller migrasjonshistorikk, og deployer
-aldri databaseendringer. Ikke opprett nytt Supabase-prosjekt eller kopier migrations hit.
-Eventuelle schemaendringer skal ha egen PR og review i `asinfra`.
-
-Database/migrasjons-/RLS-testene og den manuelle `test-rls.mjs` ligger i
-`asinfra/supabase/tests/` med egen backend-testpakke. Migreringen er fullført:
-den gamle `https://asinfra.no/study/` er kun en statisk redirect til subdomenet.
-Testene i dette repoet kontrollerer frontend/config, SDK-kall, mapping, tidsberegning,
-recovery, retry og doble handlinger; SDK-svar simuleres, ikke hosted Auth/RLS.
+Begge bruker samme eksisterende Supabase-prosjekt/Auth. Brukere, ID-er og data er
+beholdt. Ikke opprett et nytt prosjekt eller kopier backendmigrasjoner hit.
+Frontend ble opprinnelig trukket ut av hovedrepoet; den gamle
+`https://asinfra.no/study/` er nå bare en legacy redirect til subdomenet.
 
 ## Lokal utvikling
 
-Bruk Node.js 22.12+; CI bruker Node.js 24. Fra repo-roten:
+Bruk Node.js 22.12+ og npm; CI bruker Node.js 24. Kjør fra repo-roten:
 
 ```sh
 npm ci
-# Kopier .env.example til .env.local og bruk eksisterende prosjekts offentlige verdier.
+```
+
+Kopier `.env.example` til `.env.local`, og sett disse **offentlige browserverdiene**
+fra det eksisterende Supabase-prosjektet:
+
+```dotenv
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
+```
+
+Bruk aldri service-role/secret key i frontend. Vite bygger browserverdiene inn i
+JavaScript-bundlen; de er ikke hemmeligheter. `.env.local`, credentials,
+`node_modules/` og `dist/` skal ikke i Git. Bruk egne testkontoer/testdata ved lokale
+skriveoperasjoner mot hosted Supabase; lokal Vite gir ikke en separat database.
+
+```sh
 npm run dev
 ```
 
-Åpne vanlig Vite localhost, normalt **http://localhost:5173/**.
-`.env.local`, testcredentials, `node_modules/` og `dist/` skal ikke i Git.
-Kun `VITE_SUPABASE_URL` og `VITE_SUPABASE_PUBLISHABLE_KEY` brukes i frontend.
-Publishable key er offentlig; bruk aldri service-role/secret key.
+Åpne **http://localhost:5173/**. Hvis porten er opptatt, frigjør den eller kontroller
+at den alternative adressen er tillatt for Auth-retur.
 
 ```sh
 npm test
@@ -45,109 +52,87 @@ npm run check:build
 npm run preview
 ```
 
-Vite bruker `base: '/'`. Produksjonsassets ligger under `/assets/`, og bygget
-ligger i `dist/`. Preview bruker normalt **http://localhost:4173/**.
-Auth-bekreftelseslenker bruker gjeldende origin + Vites BASE_URL, ikke en hardkodet
-gammel adresse. På et nytt browser origin kan eksisterende brukere måtte logge inn igjen.
-Konto-ID-er og data er beholdt i samme Supabase-prosjekt.
+Build trenger de to browserverdiene ovenfor. Vite bruker `base: '/'` og lager
+`dist/` med root-baserte `/assets/`. Preview åpnes normalt på **http://localhost:4173/**.
 
-## Historikk og ukestatistikk
+## MVP-funksjonalitet
 
-Innlogget visning har timer, ukestatistikk, ferdig historikk, konto og egne fag.
-`src/lib/study-history.ts` bruker de deployede RPC-ene `study_session_history`,
-`study_session_history_edit` og `study_session_history_delete`; SQL og sikkerhet
-eies fortsatt av canonical backend i `asinfra`. Responsene valideres med samme
-mapping som timeren, men historikk krever avsluttet økt og avsluttede segmenter.
+- **Auth:** e-post/passord, registrering med eventuell e-postbekreftelse, lagret
+  innlogging etter reload og logout. Kontoer og eierskap håndteres av Supabase.
+- **Fag:** egne fag med valgfri kode kan opprettes, redigeres, arkiveres og aktiveres
+  igjen. Nye økter bruker aktive fag; historiske økter kan bruke arkiverte fag.
+- **Timer:** start, pause, fortsett og stopp. Serveren er source of truth for
+  recovery etter refresh og håndhever én uavsluttet økt per bruker. En pause er
+  ikke en ferdig økt. Faktisk arbeidstid er summen av arbeidssegmentene, uten pauser.
+- **Historikk:** ferdige økter hentes 25 om gangen med «Vis flere». Fag, beskrivelse,
+  øktgrenser og arbeidsperioder kan korrigeres; sletting krever bekreftelse.
+  Bekreftede og usikre writes henter data på nytt, uten optimistisk sletting.
+  Bekreftet timerstopp/recovery oppdaterer historikk og statistikk uten full refresh.
+- **Ukestatistikk:** ukevalg, total og tid per fag. Browserens lokale tidssone
+  bestemmer mandag 00:00 til neste mandag 00:00. Kalenderaritmetikk håndterer DST;
+  en uke er ikke alltid 168 timer. Alle sider i valgt uke hentes, og segmentene
+  klippes til `[ukeStart, ukeSlutt)`. Økter uten segmenter viser 0 arbeidstid.
 
-- Historikk henter 25 økter av gangen med `p_limit`/`p_offset` og «Vis flere».
-  Oppdatering etter endringer starter listen på første side igjen.
-- Uker er mandag 00:00 til neste mandag 00:00 i **browserens lokale tidssone**.
-  Kalenderdatoer brukes, ikke et fast antall timer; en DST-uke kan ha 167/169 timer.
-  Absolutte ISO-grenser sendes til Supabase. Alle sider i valgt uke hentes i
-  avgrensede batcher, slik at totalen ikke bare teller første historikkside.
-- Backend inkluderer økter ved segmentoverlapp. Klienten klipper hvert segment
-  til ukegrensene og summerer faktisk arbeidstid totalt og per fag. Pauser og
-  øktens samlede klokketid telles ikke. Gamle økter uten segmenter viser 0.
-- Redigering skjer i listen, med aktive og arkiverte egne fag og arbeidsperioder
-  som kan legges til, korrigeres eller fjernes. Norske valideringsmeldinger
-  kontrollerer beskrivelse, tidsgrenser, rekkefølge og overlapp før RPC-kallet.
-  Backend er endelig sikkerhetsgrense; segmentpayload har kun start/slutt.
-- `datetime-local` vises i lokal tid og konverteres tilbake til ISO uten manuell
-  offsetforskyvning. Uendrede felt bevarer opprinnelig timestamp/mikrosekunder.
-  Ikke-eksisterende klokkeslett ved sommertid avvises; et nytt tvetydig klokkeslett
-  ved vintertid må endres til et entydig tidspunkt. En uendret registrering fra
-  den gjentatte timen bevarer den opprinnelige forekomsten.
-- Sletting krever eksplisitt bekreftelse. Bekreftede og usikre writes henter både
-  historikk og ukestatistikk på nytt; data fjernes ikke optimistisk. Etter usikkert
-  svar lukkes edit-skjemaet så brukeren må kontrollere/åpne den oppdaterte økten.
-- Bekreftet timerstopp, også etter recovery av et mistet svar, bruker
-  `StudyTimer.onFinished` til å oppdatere begge visninger uten full browser-refresh.
-  Fagendringer oppdaterer også historikkens navn/koder.
+Historikk bruker `study_session_history`, `study_session_history_edit` og
+`study_session_history_delete`. Timeren bruker `study_session_transition` og
+`study_session_snapshot`. Responsene valideres i frontend; RLS, constraints og
+RPC-er i canonical backend er sikkerhetsgrensen og begrenser data til `auth.uid()`.
 
-Testene i `tests/history.test.mjs` dekker API/mapping, paginering, segmenttid,
-ukegrenser/DST i flere tidssoner, edit-payload, usikre writes, kansellerte/stale
-forespørsler og samspill med timer-store. SDK/network simuleres; ekte produksjonsdata
-endres ikke av disse testene.
+Redigering viser lokal tid med **hele sekunder** (`step="1"`). Et felt som fortsatt
+matcher de viste sekundene i originalen, sender det opprinnelige absolutte
+tidsstempelet uendret, inkludert milli-/mikrosekunder. Endrede felt konverteres
+til ISO med sekundpresisjon, uten manuell offsetforskyvning. Tidspunkter som ikke
+finnes ved tidsomstilling, og nye tvetydige klokkeslett, avvises. Uendrede felt i
+en gjentatt time beholder den opprinnelige forekomsten.
 
-## GitHub Pages
+## CI, deployment og Auth-retur
 
-`.github/workflows/pages.yml` validerer pull requests mot `main` med `npm ci`,
-frontend-tester, TypeScript og Vite-build. Push til `main` eller manuell kjøring
-gjør samme kontroll og publiserer **kun `dist/`** som én Pages-artifact.
-Kildekode, dependencies, env-filer og backend publiseres ikke som del av artifacten.
-GitHub Pages må bruke **Source: GitHub Actions** og **Custom domain: study.asinfra.no**.
-Custom domain settes i Pages-innstillingene; Actions-oppsettet trenger ikke en CNAME-fil.
+`.github/workflows/pages.yml` kjører `npm ci`, tester, typecheck, build og
+`check:build` på PR-er mot `main`. Push til `main` eller manuell kjøring på `main`
+gjør samme kontroll og publiserer **kun `dist/`** til GitHub Pages.
+Kildekode, dependencies, env-filer og backend publiseres ikke.
 
-Under **Settings → Secrets and variables → Actions → Variables**:
+Pages bruker **Source: GitHub Actions**, **Custom domain: study.asinfra.no** og
+HTTPS. Repository variables under **Settings → Secrets and variables → Actions →
+Variables** er `VITE_SUPABASE_URL` og `VITE_SUPABASE_PUBLISHABLE_KEY`.
+CI feiler tydelig hvis de mangler. DNS/Auth endres ikke av workflowen.
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+Auth-bekreftelseslenker bruker gjeldende origin + Vites base. I eksisterende
+Supabase-prosjekts **Authentication → URL Configuration** skal produksjonens Site URL være
+`https://study.asinfra.no/`. Redirect URLs må tillate den adressen og
+`http://localhost:5173/`, samt `http://localhost:4173/` hvis preview brukes med Auth.
+Gamle `/study/`-returer kan beholdes for legacy-lenker; ikke fjern andre appers returer.
 
-Begge peker til samme eksisterende Supabase-prosjekt.
-Workflowen feiler tydelig hvis de mangler.
+## Tester og kjente begrensninger
 
-## Produksjonsoppsett
+Frontendtestene dekker config/Auth-retur, SDK-kall, mapping, faghandlinger,
+timer/recovery/retry, paginering, edit/delete, usikre writes og segmenttid.
+Ukegrenser, tidsomstilling og inputpresisjon testes i flere tidssoner.
+SDK/nettverk simuleres: dette verifiserer ikke ekte hosted Auth eller RLS.
+Database-/RLS-testene eies av [canonical backend](https://github.com/andsolste/asinfra/tree/main/supabase/tests).
 
-Produksjonen bruker HTTPS på `study.asinfra.no`, med GitHub Pages custom domain
-og følgende DNS-record hos Uniweb:
+Designet er et enkelt MVP. Statistikk finnes kun per uke, uten grafer, eksport,
+mål eller streaks; dette er bevisst utsatt funksjonalitet, ikke feil.
+Redesign og større forbedringer håndteres separat.
 
-| Type | Host/navn | Target |
-| --- | --- | --- |
-| CNAME | `study` (`study.asinfra.no`) | `andsolste.github.io` |
+## Produksjonssjekkliste etter merge/deploy
 
-Ingen sti eller repository-navn i target. Apex-/www-recordene til hovednettstedet
-er separate. Pages bruker **Enforce HTTPS**.
+Bruk to egne testkontoer (A/B) og merkede testdata, ikke credentials i Git.
+Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 
-I **eksisterende** Supabase-prosjekt: **Authentication → URL Configuration**:
-
-- Site URL: `https://study.asinfra.no/`
-- Redirect URLs inkluderer `https://study.asinfra.no/`, `http://localhost:5173/`
-  og `http://localhost:4173/` hvis preview brukes med Auth.
-- Gammel `https://asinfra.no/study/` kan beholdes som legacy redirect.
-  Ikke erstatt listen eller fjern andre ASInfra-appers redirect-URL-er.
-- Dersom egne e-postmaler hardkoder gammel URL, gjennomgå dem. Maler som bruker
-  `RedirectTo`/standard bekreftelses-URL følger den tillatte redirecten.
-
-[Supabase redirect-dokumentasjon](https://supabase.com/docs/guides/auth/redirect-urls).
-Ingen schemaendring, brukerflytting eller ny Auth er nødvendig.
-
-## Manuell kontroll av #10 etter merge/deploy
-
-Bruk en egen testøkt der tidspunkter eller data skal endres:
-
-1. Logg inn og kontroller at eksisterende ferdige økter, fag og segmenter vises.
-2. Sammenlign arbeidstid med segmentene; pauser og null-segment-økter teller ikke.
-3. Start/pause/fortsett/stopp en ny økt; historikk og valgt uke oppdateres uten full refresh.
-4. Velg forrige/neste uke og «Denne uken»; kontroller vist tidsrom og tidssone.
-5. Kontroller total og fagfordeling, også en økt som krysser en ukegrense.
-6. Rediger beskrivelsen på testøkten og kontroller historikkliste/statistikk.
-7. Bytt til et annet eget fag, inkludert et arkivert fag.
-8. Korriger en arbeidsperiode/pause; prøv også ugyldig overlapp og tidsgrenser.
-9. Last siden på nytt og kontroller at korrigerte data består.
-10. Avbryt en sletting først, og slett deretter testøkten med eksplisitt bekreftelse.
-11. Last siden på nytt; økten er borte og uketotalen er oppdatert.
-12. Test tastatur, fokus etter edit/cancel/delete, mobil 320/390 px og desktop.
-13. Kontroller fortsatt fagadministrasjon, login/logout og timer-recovery etter refresh.
-
-Pull request merges ikke automatisk. Lokale mock-tester erstatter ikke denne
-kontrollen mot ekte Auth/RLS og produksjon etter deploy.
+1. Åpne **https://study.asinfra.no/** over HTTPS; ingen asset-404 eller konsollfeil.
+2. Test login, reload av innlogging og logout.
+3. Kontroller at eksisterende egne fag og historiske økter vises.
+4. Opprett/rediger/arkiver et testfag og aktiver det igjen.
+5. Start/pause/fortsett, refresh og stopp; samme økt gjenopprettes uten duplikat.
+6. Den ferdige økten vises i historikken uten full refresh; arbeidstid utelater pauser.
+7. Velg forrige/neste/denne uke; kontroller lokal uke, total og fagfordeling,
+   også et segment som krysser en ukegrense.
+8. Rediger beskrivelse/fag og en arbeidsperiode. Uendrede tidspunkter beholder
+   original presisjon; endrede vises uten millisekunder. Ugyldig overlapp avvises.
+9. Avbryt sletting først; slett så en merket testøkt med bekreftelse.
+10. Reload: korreksjoner består, slettet økt er borte og uketotalen stemmer.
+11. Test 320/390 px og desktop: ingen horisontal scrolling, leselige tidsfelter,
+    labels, Tab/Shift+Tab, synlig fokus, status/feil og fokus etter edit/cancel/delete.
+12. Logg inn som B i en separat nettleserprofil. A/B skal bare se egne fag,
+    økter, historikk og statistikk; bytte av konto må ikke vise forrige brukers data.

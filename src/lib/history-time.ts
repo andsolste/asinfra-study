@@ -34,14 +34,15 @@ const pad = (value: number, width = 2) => String(value).padStart(width, '0')
 export function toLocalDateTime(iso: string) {
   const date = new Date(iso)
   if (!Number.isFinite(date.getTime())) throw new Error('Ugyldig tidspunkt.')
-  return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`
+  return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 export function fromLocalDateTime(value: string, original?: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(value)
+  // Native inputs may omit :00. New values use whole seconds, never fractions.
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value)
   if (!match) throw new Error('Fyll inn en gyldig lokal dato og tid.')
-  const [, year, month, day, hour, minute, second = '0', fraction = '0'] = match
-  const parts = [+year, +month - 1, +day, +hour, +minute, +second, +fraction.padEnd(3, '0')]
+  const [, year, month, day, hour, minute, second = '0'] = match
+  const parts = [+year, +month - 1, +day, +hour, +minute, +second, 0]
   const date = new Date(0)
   date.setFullYear(parts[0], parts[1], parts[2])
   date.setHours(parts[3], parts[4], parts[5], parts[6])
@@ -50,7 +51,8 @@ export function fromLocalDateTime(value: string, original?: string) {
     throw new Error('Tidspunktet finnes ikke i din lokale tidssone. Kontroller dato og klokkeslett.')
   }
   const normalized = toLocalDateTime(date.toISOString())
-  // Preserve microseconds AND the original occurrence in a repeated DST hour.
+  // Compare displayed seconds, but return the original absolute timestamp verbatim.
+  // This preserves subsecond precision AND the occurrence in a repeated DST hour.
   if (original && toLocalDateTime(original) === normalized) return original
   const offsets = new Set([-86400000, 86400000].map(delta => new Date(date.getTime() + delta).getTimezoneOffset()))
   for (const offset of offsets) {

@@ -52,11 +52,11 @@ export default function HistoryForm({ entry, subjects, disabled, busy, onSave, o
       </div>
       <div className="history-times">
         <div className="auth-field"><label htmlFor={id + '-start'}>Økten startet</label>
-          <input id={id + '-start'} type="datetime-local" step="0.001" required value={draft.start}
+          <input id={id + '-start'} type="datetime-local" step="1" required value={draft.start}
             onInput={event => setDraft({ ...draft, start: event.currentTarget.value })}
             onChange={event => setDraft({ ...draft, start: event.target.value })} /></div>
         <div className="auth-field"><label htmlFor={id + '-end'}>Økten sluttet</label>
-          <input id={id + '-end'} type="datetime-local" step="0.001" required value={draft.end}
+          <input id={id + '-end'} type="datetime-local" step="1" required value={draft.end}
             onInput={event => setDraft({ ...draft, end: event.currentTarget.value })}
             onChange={event => setDraft({ ...draft, end: event.target.value })} /></div>
       </div>
@@ -66,11 +66,11 @@ export default function HistoryForm({ entry, subjects, disabled, busy, onSave, o
         <p>Arbeidsperiode {index + 1}</p>
         <div className="history-times">
           <div className="auth-field"><label htmlFor={id + segment.key + '-start'}>Fra</label>
-            <input id={id + segment.key + '-start'} type="datetime-local" step="0.001" required autoFocus={!segment.originalStart} value={segment.start}
+            <input id={id + segment.key + '-start'} type="datetime-local" step="1" required autoFocus={!segment.originalStart} value={segment.start}
               onInput={event => changeSegment(segment.key, 'start', event.currentTarget.value)}
               onChange={event => changeSegment(segment.key, 'start', event.target.value)} /></div>
           <div className="auth-field"><label htmlFor={id + segment.key + '-end'}>Til</label>
-            <input id={id + segment.key + '-end'} type="datetime-local" step="0.001" required value={segment.end}
+            <input id={id + segment.key + '-end'} type="datetime-local" step="1" required value={segment.end}
               onInput={event => changeSegment(segment.key, 'end', event.currentTarget.value)}
               onChange={event => changeSegment(segment.key, 'end', event.target.value)} /></div>
         </div>
