@@ -108,12 +108,13 @@ test('datetime-local conversions preserve local time, microseconds and unchanged
   const oldZone = process.env.TZ
   try {
     process.env.TZ = 'Europe/Oslo'
-    assert.equal(toLocalDateTime('2026-10-07T10:00:00Z'), '2026-10-07T12:00:00.000')
+    assert.equal(toLocalDateTime('2026-10-07T10:00:00Z'), '2026-10-07T12:00:00')
     assert.equal(fromLocalDateTime('2026-10-07T12:00'), '2026-10-07T10:00:00.000Z')
     const precise = '2026-10-07T10:00:00.123456Z'
     assert.equal(fromLocalDateTime(toLocalDateTime(precise), precise), precise)
-    for (const iso of ['2026-10-25T00:30:00Z', '2026-10-25T01:30:00Z']) {
+    for (const iso of ['2026-10-25T00:30:00.971234Z', '2026-10-25T01:30:00.971234Z']) {
       assert.equal(fromLocalDateTime(toLocalDateTime(iso), iso), iso)
+      assert.throws(() => fromLocalDateTime('2026-10-25T02:30:01', iso), /to ganger/)
     }
     assert.throws(() => fromLocalDateTime('2026-10-25T02:30'), /to ganger/)
     assert.throws(() => fromLocalDateTime('2026-03-29T02:30'), /finnes ikke/)
@@ -123,6 +124,68 @@ test('datetime-local conversions preserve local time, microseconds and unchanged
     if (oldZone === undefined) delete process.env.TZ
     else process.env.TZ = oldZone
   }
+})
+
+test('second-precision inputs preserve unchanged absolute timestamps and convert changed values in multiple zones', () => {
+  const oldZone = process.env.TZ
+  try {
+    const original = '2026-10-09T06:28:19.971234Z'
+    for (const zone of ['UTC', 'Europe/Oslo', 'America/New_York']) {
+      process.env.TZ = zone
+      const displayed = toLocalDateTime(original)
+      assert.match(displayed, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
+      assert.equal(fromLocalDateTime(displayed, original), original)
+      const changed = toLocalDateTime('2026-10-09T06:28:20Z')
+      assert.equal(fromLocalDateTime(changed, original), '2026-10-09T06:28:20.000Z')
+      assert.throws(() => fromLocalDateTime(displayed + '.500', original), /gyldig/)
+      const zeroSeconds = '2026-10-09T06:28:00.123456Z'
+      assert.equal(fromLocalDateTime(toLocalDateTime(zeroSeconds).slice(0, -3), zeroSeconds), zeroSeconds)
+    }
+    process.env.TZ = 'Europe/Oslo'
+    assert.equal(toLocalDateTime(original), '2026-10-09T08:28:19')
+    const offsetOriginal = '2026-10-09T08:28:19.971234+02:00'
+    assert.equal(fromLocalDateTime('2026-10-09T08:28:19', offsetOriginal), offsetOriginal)
+  } finally {
+    if (oldZone === undefined) delete process.env.TZ
+    else process.env.TZ = oldZone
+  }
+})
+
+function preciseEntry() {
+  const row = fixture()
+  row.session.started_at = row.session.started_at.replace('Z', '.971234Z')
+  row.session.ended_at = row.session.ended_at.replace('Z', '.123456Z')
+  row.segments.forEach(segment => {
+    segment.started_at = segment.started_at.replace('Z', '.971234Z')
+    segment.ended_at = segment.ended_at.replace('Z', '.123456Z')
+  })
+  return mapHistoryEntry(row)
+}
+
+test('description/subject edits preserve every original session/segment timestamp despite second-only UI', () => {
+  const row = preciseEntry(), draft = createHistoryDraft(row)
+  const otherSubject = { ...subject, id: otherId, is_archived: true }
+  const input = prepareHistoryEdit({ ...draft, subjectId: otherId, description: 'Korrigert tekst' }, [subject, otherSubject])
+  assert.equal(input.subjectId, otherId)
+  assert.equal(input.description, 'Korrigert tekst')
+  assert.equal(input.startedAt, row.session.started_at)
+  assert.equal(input.endedAt, row.session.ended_at)
+  assert.deepEqual(input.segments, row.segments.map(({ started_at, ended_at }) => ({ started_at, ended_at })))
+  assert.ok([draft.start, draft.end, ...draft.segments.flatMap(segment => [segment.start, segment.end])]
+    .every(value => !value.includes('.')))
+})
+
+test('changing one session/segment field uses whole seconds and leaves all other fields precise', () => {
+  const row = preciseEntry(), draft = createHistoryDraft(row)
+  draft.start = toLocalDateTime(time('09:59'))
+  const changedEnd = '2026-10-07T10:30:01Z'
+  draft.segments[0].end = toLocalDateTime(changedEnd)
+  const input = prepareHistoryEdit(draft, [subject])
+  assert.equal(input.startedAt, '2026-10-07T09:59:00.000Z')
+  assert.equal(input.endedAt, row.session.ended_at)
+  assert.equal(input.segments[0].started_at, row.segments[0].started_at)
+  assert.equal(input.segments[0].ended_at, '2026-10-07T10:30:01.000Z')
+  assert.deepEqual(input.segments[1], { started_at: row.segments[1].started_at, ended_at: row.segments[1].ended_at })
 })
 
 test('edit drafts support add/remove, archived subjects and timestamp-only replacement payloads', () => {
