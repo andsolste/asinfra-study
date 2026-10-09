@@ -42,10 +42,10 @@ export default function Subjects({ data }: { data: ReturnType<typeof useSubjects
     </li>)}</ul>
   }
 
-  return <section className="subjects-section" aria-labelledby="subjects-title" aria-busy={data.busy}>
+  return <section className="dashboard-panel subjects-section" aria-labelledby="subjects-title" aria-busy={data.busy}>
     <header className="subjects-heading">
-      <h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine fag</h2>
-      {!creating && <button type="button" disabled={disabled || editing !== null} onClick={() => setCreating(true)}>Nytt fag</button>}
+      <div><p className="section-label">Organisering</p><h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine fag</h2></div>
+      {!creating && <button type="button" className="secondary-button" disabled={disabled || editing !== null} onClick={() => setCreating(true)}>Nytt fag</button>}
     </header>
     <p>Opprett egne fag eller kategorier. Arkiver fag du ikke bruker nå; de kan aktiveres igjen senere.</p>
     <p role="status">{data.status === 'loading' ? 'Henter fagene dine …' : data.busy ? 'Lagrer …' : data.notice}</p>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import Subjects from './Subjects'
+import AppHeader from './AppHeader'
 import StudyTimer from './StudyTimer'
 import StudyHistory from './StudyHistory'
 import { useSubjects } from '../hooks/useSubjects'
@@ -29,15 +30,18 @@ export default function Account({ session }: { session: Session }) {
 
   return (
     <>
-      <StudyTimer subjects={subjects} onFinished={history.reload} />
-      <StudyHistory data={history} subjects={subjects} />
-      <section className="auth-section" aria-labelledby="account-title">
-        <h2 id="account-title">Konto</h2>
-        <p className="account-email">Innlogget som <strong>{session.user.email}</strong></p>
-        <button type="button" disabled={signingOut} onClick={signOut}>{signingOut ? 'Logger ut …' : 'Logg ut'}</button>
+      <AppHeader>
+        <div className="account-controls">
+          <p className="account-email"><span>Innlogget som</span><strong>{session.user.email ?? 'Study-bruker'}</strong></p>
+          <button className="secondary-button" type="button" disabled={signingOut} onClick={signOut}>{signingOut ? 'Logger ut …' : 'Logg ut'}</button>
+        </div>
         {error && <p role="alert" className="auth-error">{error}</p>}
-      </section>
-      <Subjects data={subjects} />
+      </AppHeader>
+      <main id="study-content" className="dashboard-grid" tabIndex={-1}>
+        <StudyTimer subjects={subjects} onFinished={history.reload} />
+        <StudyHistory data={history} subjects={subjects} />
+        <Subjects data={subjects} />
+      </main>
     </>
   )
 }
