@@ -5,17 +5,27 @@ import { formatDuration, sessionDurations, sessionStatus, validateSessionInput }
 import type { SessionCommand } from '../lib/study-sessions'
 import { splitSubjects } from '../lib/subjects'
 
-export default function StudyTimer({ subjects }: { subjects: ReturnType<typeof useSubjects> }) {
+export default function StudyTimer({ subjects, onFinished }: {
+  subjects: ReturnType<typeof useSubjects>; onFinished?: () => void
+}) {
   const data = useStudySession()
   const [subjectId, setSubjectId] = useState('')
   const [description, setDescription] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const heading = useRef<HTMLHeadingElement | null>(null)
+  const notified = useRef<string | null>(null)
   const { active } = splitSubjects(subjects.subjects)
   const current = data.current
   const status = current ? sessionStatus(current) : null
   const disabled = data.busy || !data.loaded || Boolean(data.pending) || Boolean(data.error)
+
+  useEffect(() => {
+    if (data.saved && notified.current !== data.saved.session.id) {
+      notified.current = data.saved.session.id
+      onFinished?.()
+    }
+  }, [data.saved, onFinished])
 
   useEffect(() => {
     setNow(Date.now())
