@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createClient } from '@supabase/supabase-js'
 import { createHistoryApi, mapHistoryEntry, mapHistoryPage, createHistoryDraft, prepareHistoryEdit,
-  addDraftSegment, removeDraftSegment, summarizeWeek } from '../src/lib/study-history.ts'
+  addDraftSegment, removeDraftSegment } from '../src/lib/study-history.ts'
 import { localWeek, shiftWeek, workMilliseconds, toLocalDateTime, fromLocalDateTime } from '../src/lib/history-time.ts'
+import { summarizeStatistics } from '../src/lib/statistics.ts'
 import { createHistoryStore } from '../src/lib/history-store.ts'
 import { createSessionStore } from '../src/lib/session-store.ts'
 
@@ -13,7 +14,7 @@ const otherId = '20000000-0000-4000-8000-000000000002'
 const segmentId = '30000000-0000-4000-8000-000000000001'
 const subject = { id: subjectId, name: 'OS', code: 'IDATT2202', is_archived: false, created_at: '2026-10-07T00:00:00Z' }
 const time = value => '2026-10-07T' + value + ':00Z'
-const interval = { from: '2026-10-05T00:00:00Z', to: '2026-10-12T00:00:00Z' }
+const interval = { kind: 'week', from: '2026-10-05T00:00:00Z', to: '2026-10-12T00:00:00Z' }
 const tick = () => new Promise(resolve => setImmediate(resolve))
 function fixture(id = sessionId) {
   return { session: { id, subject_id: subjectId, description: 'Lesing', started_at: time('10:00'), ended_at: time('12:00') },
@@ -53,7 +54,7 @@ test('work comes only from closed segments; pauses and session envelopes are not
   assert.equal(workMilliseconds(entry().segments), 90 * 60000)
   assert.equal(workMilliseconds([]), 0)
   assert.equal(workMilliseconds([{ ...entry().segments[0], ended_at: null }]), 0)
-  const summary = summarizeWeek([entry()], interval)
+  const summary = summarizeStatistics([entry()], interval)
   assert.equal(summary.total, 90 * 60000)
   assert.equal(summary.subjects[0].work, summary.total)
 })
@@ -73,7 +74,7 @@ test('weekly totals group by subject ID, distinguish equal names and collect del
     session: { ...fixture(otherId).session, subject_id: otherId } })
   const c = mapHistoryEntry({ ...fixture(segmentId), subject: null,
     session: { ...fixture(segmentId).session, subject_id: null } })
-  const summary = summarizeWeek([a, b, c], interval)
+  const summary = summarizeStatistics([a, b, c], interval)
   assert.equal(summary.total, 270 * 60000)
   assert.equal(summary.subjects.length, 3)
   assert.equal(summary.subjects.find(row => row.id === null).name, 'Uten fag')
@@ -261,7 +262,7 @@ test('SDK API sends exact pagination, absolute week bounds and sanitized edit/de
   assert.equal(requests.length, count, 'An already aborted read does not reach the network')
 })
 
-test('weekly API fetches every bounded page, not just the first 200 sessions', async () => {
+test('range API fetches every bounded page, not just the first 200 sessions', async () => {
   const calls = []
   const client = { rpc: (_name, args) => ({ abortSignal: async () => {
     calls.push(args)
@@ -269,7 +270,7 @@ test('weekly API fetches every bounded page, not just the first 200 sessions', a
     return { error: null, data: Array.from({ length: count }, (_, i) =>
       fixture('10000000-0000-4000-8000-' + String(args.p_offset + i).padStart(12, '0'))) }
   } }) }
-  const rows = await createHistoryApi(client).week(interval, new AbortController().signal)
+  const rows = await createHistoryApi(client).range(interval, new AbortController().signal)
   assert.equal(rows.length, 201)
   assert.deepEqual(calls.map(row => row.p_offset), [0, 200])
   assert.ok(calls.every(row => row.p_limit === 200 && row.p_from === interval.from && row.p_to === interval.to))
@@ -280,7 +281,7 @@ function server() {
   const calls = []
   const api = {
     list: async query => { calls.push(['list', query]); return rows.slice(query.offset, query.offset + query.limit) },
-    week: async range => { calls.push(['week', range]); return [...rows] },
+    range: async range => { calls.push(['range', range]); return [...rows] },
     edit: async (_id, input) => { rows = [{ ...rows[0], session: { ...rows[0].session, description: input.description },
       segments: rows[0].segments.slice(0, 1) }]; return rows[0] },
     remove: async () => { rows = [] },
@@ -308,16 +309,16 @@ test('store paginates 25 at a time, guards duplicate loads and resets pages on r
 test('edit/delete refresh both history and statistics without optimistic state changes', async () => {
   const data = server(), store = createHistoryStore(data.api, interval)
   store.connect(); await tick()
-  assert.equal(summarizeWeek(store.getSnapshot().weekRows, interval).total, 90 * 60000)
+  assert.equal(summarizeStatistics(store.getSnapshot().statisticsRows, interval).total, 90 * 60000)
   const input = prepareHistoryEdit(createHistoryDraft(entry()), [subject]); input.description = 'Changed'
   assert.equal(await store.edit(sessionId, input), true)
   assert.equal(store.getSnapshot().rows[0].session.description, 'Changed')
-  assert.equal(summarizeWeek(store.getSnapshot().weekRows, interval).total, 30 * 60000)
+  assert.equal(summarizeStatistics(store.getSnapshot().statisticsRows, interval).total, 30 * 60000)
   assert.equal(await store.remove(sessionId), true)
   assert.deepEqual(store.getSnapshot().rows, [])
-  assert.equal(summarizeWeek(store.getSnapshot().weekRows, interval).total, 0)
+  assert.equal(summarizeStatistics(store.getSnapshot().statisticsRows, interval).total, 0)
   assert.equal(store.getSnapshot().notice, 'Økten er slettet.')
-  assert.equal(data.calls.filter(row => row[0] === 'week').length, 3)
+  assert.equal(data.calls.filter(row => row[0] === 'range').length, 3)
   store.disconnect()
 })
 
@@ -331,7 +332,7 @@ test('uncertain writes reconcile committed edits/deletes; failed reload blocks b
     if (kind === 'edit') await store.edit(sessionId, { ...prepareHistoryEdit(createHistoryDraft(entry()), [subject]), description: 'Committed' })
     else await store.remove(sessionId)
     assert.deepEqual(store.getSnapshot().rows, data.getRows())
-    assert.deepEqual(store.getSnapshot().weekRows, data.getRows())
+    assert.deepEqual(store.getSnapshot().statisticsRows, data.getRows())
     assert.ok(store.getSnapshot().error.includes('kan ha blitt'))
     assert.equal(store.getSnapshot().mutation, null)
     data.api.list = async () => { throw new Error('Offline') }
@@ -344,23 +345,23 @@ test('uncertain writes reconcile committed edits/deletes; failed reload blocks b
 
 test('independent loading/errors, retry and out-of-order weeks cannot overwrite a newer selection', async () => {
   const data = server(), pending = []
-  data.api.week = (range, signal) => new Promise(resolve => pending.push({ range, signal, resolve }))
+  data.api.range = (range, signal) => new Promise(resolve => pending.push({ range, signal, resolve }))
   const store = createHistoryStore(data.api, interval)
   store.connect(); await tick()
   assert.equal(store.getSnapshot().status, 'ready')
-  const next = { from: '2026-10-12T00:00:00Z', to: '2026-10-19T00:00:00Z' }
-  const changing = store.selectWeek(next)
+  const next = { kind: 'week', from: '2026-10-12T00:00:00Z', to: '2026-10-19T00:00:00Z' }
+  const changing = store.selectPeriod(next)
   pending[1].resolve([]); await changing
   pending[0].resolve([entry()]); await tick()
   assert.equal(pending[0].signal.aborted, true)
-  assert.equal(store.getSnapshot().week.from, next.from)
-  assert.deepEqual(store.getSnapshot().weekRows, [])
-  data.api.week = async () => { throw new Error('Offline') }
-  await store.selectWeek(interval)
-  assert.equal(store.getSnapshot().weekStatus, 'error')
-  data.api.week = async () => [entry()]
-  await store.selectWeek(interval)
-  assert.equal(store.getSnapshot().weekStatus, 'ready')
+  assert.equal(store.getSnapshot().period.from, next.from)
+  assert.deepEqual(store.getSnapshot().statisticsRows, [])
+  data.api.range = async () => { throw new Error('Offline') }
+  await store.selectPeriod(interval)
+  assert.equal(store.getSnapshot().statisticsStatus, 'error')
+  data.api.range = async () => [entry()]
+  await store.selectPeriod(interval)
+  assert.equal(store.getSnapshot().statisticsStatus, 'ready')
   store.disconnect()
 })
 
@@ -408,7 +409,7 @@ test('a confirmed timer stop/recovery explicitly reloads finished history and th
     }
     await tick()
     assert.equal(history.getSnapshot().rows.length, 1)
-    assert.equal(summarizeWeek(history.getSnapshot().weekRows, interval).total, 90 * 60000)
+    assert.equal(summarizeStatistics(history.getSnapshot().statisticsRows, interval).total, 90 * 60000)
     assert.equal(timer.getSnapshot().current, null)
     timer.disconnect(); history.disconnect()
   }

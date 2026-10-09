@@ -7,5 +7,5 @@ export function useStudyHistory() {
   const [store] = useState(() => createHistoryStore(createHistoryApi(supabase!)))
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
   useEffect(() => { store.connect(); return () => store.disconnect() }, [store])
-  return { ...state, reload: store.refresh, more: store.more, selectWeek: store.selectWeek, edit: store.edit, remove: store.remove }
+  return { ...state, reload: store.refresh, more: store.more, selectPeriod: store.selectPeriod, edit: store.edit, remove: store.remove }
 }
