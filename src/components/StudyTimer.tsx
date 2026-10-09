@@ -57,8 +57,8 @@ export default function StudyTimer({ subjects, onFinished }: {
 
   return <section className="dashboard-panel timer-section" aria-labelledby="timer-title" aria-busy={data.busy}>
     <header className="panel-heading">
-      <div><p className="section-label">Studietimer</p>
-        <h2 id="timer-title" ref={heading} tabIndex={-1}>{current ? 'Din studieøkt' : 'Ny studieøkt'}</h2></div>
+      <div><p className="section-label">{current ? 'Din studieøkt' : 'Ny studieøkt'}</p>
+        <h2 id="timer-title" ref={heading} tabIndex={-1}>Studietidtaker</h2></div>
       <p className={`timer-status ${data.error ? 'is-error' : data.busy || !data.loaded ? 'is-loading' : status === 'running' ? 'is-running' : status === 'paused' ? 'is-paused' : 'is-ready'}`} role="status">
         {!data.loaded && !data.error ? 'Henter aktiv økt …' : data.error ? 'Må kontrolleres'
           : data.busy ? 'Kontrollerer og lagrer …' : current ? status === 'running' ? 'Pågår' : 'Pauset' : 'Klar til å starte'}
@@ -115,8 +115,8 @@ export default function StudyTimer({ subjects, onFinished }: {
         </div>
         <button className="timer-start" type="submit">Start studieøkt</button>
       </fieldset>
-      {subjects.status === 'ready' && !active.length && <p>Opprett eller aktiver et fag under «Dine fag» først.</p>}
-      {subjects.status !== 'ready' && <p>Fagene må hentes før du kan starte. Bruk fagoversikten nedenfor.</p>}
+      {subjects.status === 'ready' && !active.length && <p>Opprett eller aktiver et fag i «Organisering» først.</p>}
+      {subjects.status !== 'ready' && <p>Fagene må hentes før du kan starte. Åpne «Organisering» for å kontrollere fagene.</p>}
       {validation && <p className="auth-error" role="alert">{validation}</p>}
     </form>}
     {data.loaded && <button className="text-button timer-refresh" type="button" disabled={data.busy}

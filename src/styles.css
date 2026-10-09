@@ -51,16 +51,23 @@ h2:target { color: var(--purple-light); }
 .account-email span { display: block; font-size: .75rem; color: var(--text-muted); }
 .account-email strong { font-weight: 500; }
 .account-controls button { flex-shrink: 0; }
-.dashboard-nav { display: flex; flex-wrap: wrap; gap: .25rem; }
-.dashboard-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .875rem; border-radius: var(--control-radius); color: var(--text-secondary); font-size: .875rem; font-weight: 600; text-decoration: none; }
-.dashboard-nav a:hover { background: var(--surface-elevated); color: var(--purple-light); }
-
-.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "timer" "week" "history" "subjects"; gap: var(--space-6); align-items: start; }
+.timer-workspace { width: min(100%, 60rem); margin: 0 auto; }
 .dashboard-panel { min-width: 0; padding: clamp(1rem, 2.5vw, 1.75rem); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-wrap: anywhere; }
-.timer-section { grid-area: timer; border-top: 2px solid var(--purple); }
-.week-panel { grid-area: week; }
-.history-section { grid-area: history; }
-.subjects-section { grid-area: subjects; }
+.timer-section { border-top: 2px solid var(--purple); padding: clamp(1rem, 4vw, 2.5rem); }
+.timer-section h2 { font-size: 1.5rem; }
+.timer-section > form { max-width: 36rem; margin-inline: auto; }
+.detail-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
+.detail-actions button { min-height: 48px; }
+
+body:has(.detail-panel[open]) { overflow: hidden; }
+.detail-panel { width: min(calc(100% - 2rem), 68rem); max-width: none; max-height: calc(100dvh - 2rem); padding: 0; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); background: var(--surface); overflow: hidden; }
+.detail-panel[open] { display: flex; flex-direction: column; }
+.detail-panel::backdrop { background: rgb(4 9 20 / .8); }
+.detail-panel-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--border); }
+.detail-panel-header h2 { font-size: 1.15rem; }
+.detail-panel-content { min-height: 0; padding: var(--space-6); overflow-y: auto; overscroll-behavior: contain; }
+.detail-panel-content > .dashboard-panel { padding: 0; border: 0; border-radius: 0; }
+.detail-panel-hint { margin: 0 0 var(--space-6); color: var(--text-muted); font-size: .8rem; }
 .panel-heading, .subjects-heading { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4); }
 .section-label { margin: 0 0 .375rem; color: var(--text-muted); font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 
@@ -71,11 +78,11 @@ input, select, textarea { width: 100%; min-width: 0; max-width: 100%; min-height
 textarea { resize: vertical; }
 small, .subject-help { color: var(--text-muted); font-size: .8rem; }
 button { min-width: 44px; min-height: 44px; padding: .625rem 1rem; font: inherit; font-size: .9rem; font-weight: 600; background: var(--accent); color: white; border: 1px solid transparent; border-radius: var(--control-radius); cursor: pointer; }
-button:hover:not(:disabled) { background: var(--accent-hover); }
-button:disabled { opacity: .6; cursor: not-allowed; }
+button:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--accent-hover); }
+button:disabled, button[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
 [aria-busy="true"] button:disabled { cursor: wait; }
 .secondary-button { background: transparent; border-color: var(--border); color: var(--text-secondary); }
-.secondary-button:hover:not(:disabled) { background: var(--surface-elevated); border-color: var(--purple-light); color: var(--text-primary); }
+.secondary-button:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--surface-elevated); border-color: var(--purple-light); color: var(--text-primary); }
 .text-button { background: transparent; color: var(--purple-light); padding-inline: .75rem; text-align: left; }
 .text-button:hover:not(:disabled) { background: var(--surface-elevated); text-decoration: underline; }
 .danger-text, .auth-error { color: var(--error); }
@@ -99,15 +106,15 @@ p.timer-status.is-running { color: var(--success); }
 p.timer-status.is-paused { color: var(--warning); }
 p.timer-status.is-error { color: var(--error); }
 p.timer-status.is-loading { color: var(--blue); }
-.timer-current { padding-top: var(--space-6); }
+.timer-current { max-width: 40rem; margin-inline: auto; padding-top: var(--space-8); text-align: center; }
 .subject-code { margin: 0 0 .25rem; color: var(--blue); font-size: .8rem; font-weight: 500; }
 .timer-subject { margin: 0; font-size: 1.25rem; }
 .timer-description { color: var(--text-secondary); white-space: pre-wrap; }
 .timer-clock { display: grid; gap: var(--space-2); margin-block: var(--space-8); font-variant-numeric: tabular-nums; }
 .clock-label { color: var(--text-muted); font-size: .8rem; }
-.clock-value { font-size: clamp(2.25rem, 6vw, 4rem); font-weight: 600; line-height: 1.15; letter-spacing: -.04em; }
+.clock-value { font-size: clamp(2.5rem, 7vw, 5rem); font-weight: 600; line-height: 1.15; letter-spacing: -.04em; }
 .timer-meta { color: var(--text-muted); font-size: .8rem; }
-.timer-controls { gap: .75rem; margin-bottom: var(--space-4); }
+.timer-controls { justify-content: center; gap: .75rem; margin-bottom: var(--space-4); }
 .timer-controls button { min-width: 7rem; }
 .timer-start { min-width: 10rem; }
 .timer-refresh { margin-top: var(--space-4); }
@@ -175,12 +182,11 @@ p.timer-status.is-loading { color: var(--blue); }
 @media (min-width: 760px) {
   .app-header { grid-template-columns: minmax(0, 1fr) minmax(0, auto); align-items: center; }
   .app-account { max-width: 28rem; justify-self: end; }
-  .dashboard-nav { grid-column: 1 / -1; }
-}
-@media (min-width: 960px) {
-  .dashboard-grid { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); grid-template-areas: "timer week" "history history" "subjects subjects"; }
 }
 @media (max-width: 559px) {
+  .detail-actions { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .detail-panel { width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+  .detail-panel-header, .detail-panel-content { padding: var(--space-4); }
   .history-entry-heading { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
   .history-work { display: flex; align-items: baseline; gap: .75rem; text-align: left; }
   .timer-controls button { flex: 1; min-width: 0; }

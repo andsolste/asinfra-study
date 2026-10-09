@@ -8,10 +8,5 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
       <p>Arbeidstid og oversikt over studiene dine.</p>
     </div>
     {children && <div className="app-account">{children}</div>}
-    {children && <nav className="dashboard-nav" aria-label="Dashboard">
-      <a href="#timer-title">Timer</a>
-      <a href="#history-title">Historikk</a>
-      <a href="#subjects-title">Dine fag</a>
-    </nav>}
   </header>
 }
