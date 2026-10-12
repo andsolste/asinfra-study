@@ -25,7 +25,7 @@ export function useSubjects() {
       setSubjects(rows); setStatus('ready')
     } catch {
       if (request.current === controller) {
-        setStatus('error'); setError('Kunne ikke hente fagene dine. Prøv igjen.')
+        setStatus('error'); setError('Kunne ikke hente områdene dine. Prøv igjen.')
       }
     } finally {
       window.clearTimeout(timeout)
@@ -54,7 +54,7 @@ export function useSubjects() {
     } catch {
       if (request.current === controller) {
         // An interrupted write may have reached the DB. Require a fresh list before retry.
-        setStatus('error'); setError(`${failure} Hent fagene på nytt før du prøver igjen.`)
+        setStatus('error'); setError(`${failure} Hent områdene på nytt før du prøver igjen.`)
       }
       return false
     } finally {
@@ -67,12 +67,12 @@ export function useSubjects() {
     subjects, status, busy, error, notice, reload: load,
     save: (input: SubjectInput, id?: string) => api
       ? mutate(signal => id ? api.edit(id, input, signal) : api.create(input, signal),
-        id ? 'Endringene er lagret.' : 'Faget er opprettet.', id ? 'Kunne ikke lagre endringene.' : 'Kunne ikke opprette faget.')
+        id ? 'Endringene er lagret.' : 'Området er opprettet.', id ? 'Kunne ikke lagre endringene.' : 'Kunne ikke opprette området.')
       : Promise.resolve(false),
     setArchived: (subject: Subject) => api
       ? mutate(signal => api.setArchived(subject.id, !subject.is_archived, signal),
-        subject.is_archived ? 'Faget er aktivt igjen.' : 'Faget er arkivert.',
-        subject.is_archived ? 'Kunne ikke aktivere faget.' : 'Kunne ikke arkivere faget.')
+        subject.is_archived ? 'Området er aktivt igjen.' : 'Området er arkivert.',
+        subject.is_archived ? 'Kunne ikke aktivere området.' : 'Kunne ikke arkivere området.')
       : Promise.resolve(false),
   }
 }

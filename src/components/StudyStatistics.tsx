@@ -19,7 +19,7 @@ export default function StudyStatistics({ data }: { data: ReturnType<typeof useS
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   return <section className="dashboard-panel statistics-panel" aria-labelledby="statistics-title" aria-busy={data.statisticsStatus === 'loading'}>
-    <header className="panel-heading"><div><p className="section-label">Faktisk studiearbeid</p><h2 id="statistics-title">Arbeidstid</h2></div>
+    <header className="panel-heading"><div><p className="section-label">Faktisk arbeid</p><h2 id="statistics-title">Arbeidstid</h2></div>
       <div className="statistics-kinds" role="group" aria-label="Statistikkperiode">
         {kinds.map(value => <button key={value.kind} type="button" className="secondary-button" aria-pressed={value.kind === period.kind}
           disabled={busy} onClick={() => void data.selectPeriod(changePeriodKind(period, value.kind))}>{value.label}</button>)}
@@ -40,7 +40,7 @@ export default function StudyStatistics({ data }: { data: ReturnType<typeof useS
     {data.statisticsStatus === 'ready' && <>
       <dl className="statistics-summary">
         <div className="statistics-total"><dt>Total arbeidstid</dt><dd>{formatDuration(totals.total)}</dd></div>
-        <div><dt>Mest studert fag</dt><dd>{totals.mostStudied ? <>{totals.mostStudied.code ?? totals.mostStudied.name}<span>{formatDuration(totals.mostStudied.work)}</span></> : 'Ingen ennå'}</dd></div>
+        <div><dt>Mest aktive område</dt><dd>{totals.mostStudied ? <>{totals.mostStudied.code ?? totals.mostStudied.name}<span>{formatDuration(totals.mostStudied.work)}</span></> : 'Ingen ennå'}</dd></div>
         {period.kind !== 'day' && <div><dt>Mest aktive dag</dt><dd>{totals.busiestDay ? <>{new Date(totals.busiestDay.from).toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' })}<span>{formatDuration(totals.busiestDay.total)}</span></> : 'Ingen ennå'}</dd></div>}
       </dl>
       {!totals.total && <p className="statistics-state">Ingen registrert arbeidstid i denne perioden.</p>}

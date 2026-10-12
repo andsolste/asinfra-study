@@ -58,7 +58,7 @@ export function mapSessionRecord(value: unknown): SessionRecord {
   }
   if (session.ended_at && Date.parse(session.ended_at) < Date.parse(session.started_at)) throw new Error('Ugyldige tidspunkt.')
   const subject = row.subject === null ? null : mapSubject(row.subject)
-  if (subject && subject.id !== session.subject_id) throw new Error('Ugyldig fagkobling.')
+  if (subject && subject.id !== session.subject_id) throw new Error('Ugyldig områdekobling.')
   return { session, subject, segments }
 }
 
@@ -84,7 +84,7 @@ export function formatDuration(milliseconds: number) {
     .map(value => String(value).padStart(2, '0')).join(':')
 }
 export function validateSessionInput(subjectId: string, description: string, subjects: Subject[]) {
-  if (!subjects.some(subject => subject.id === subjectId && !subject.is_archived)) throw new Error('Velg et aktivt fag.')
+  if (!subjects.some(subject => subject.id === subjectId && !subject.is_archived)) throw new Error('Velg et aktivt område.')
   const text = description.trim()
   if (Array.from(text).length > 500) throw new Error('Beskrivelsen kan ha maks 500 tegn.')
   return text

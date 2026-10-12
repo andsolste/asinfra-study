@@ -93,5 +93,5 @@ test('invalid inputs do not reach the network; server/network/empty-row failures
     global: { fetch: async () => { throw new Error('NETWORK TECHNICAL DETAILS') } },
     auth: { persistSession: false },
   })
-  await assert.rejects(createSubjectApi(offline).list(controller.signal), /Kunne ikke hente fagene dine/)
+  await assert.rejects(createSubjectApi(offline).list(controller.signal), /Kunne ikke hente områdene dine/)
 })

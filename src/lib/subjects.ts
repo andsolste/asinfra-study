@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Legacy compatibility API: UI calls these areas, but still writes subjects until #11.
+// Future native Flow code uses types/flow.ts, not aliases of this Study contract.
 export type Subject = {
   id: string
   name: string
@@ -15,21 +17,21 @@ const length = (value: string) => Array.from(value).length
 export function validateSubject(input: SubjectInput) {
   const name = input.name.trim()
   const code = input.code.trim() || null
-  if (!name) throw new Error('Fagnavn er påkrevd.')
-  if (length(name) > 120) throw new Error('Fagnavn kan ha maks 120 tegn.')
-  if (code && length(code) > 32) throw new Error('Fagkode kan ha maks 32 tegn.')
+  if (!name) throw new Error('Områdenavn er påkrevd.')
+  if (length(name) > 120) throw new Error('Områdenavn kan ha maks 120 tegn.')
+  if (code && length(code) > 32) throw new Error('Kode kan ha maks 32 tegn.')
   return { name, code }
 }
 
 export function mapSubject(value: unknown): Subject {
-  if (!value || typeof value !== 'object') throw new Error('Ugyldige fagdata.')
+  if (!value || typeof value !== 'object') throw new Error('Ugyldige områdedata.')
   const row = value as Record<string, unknown>
   if (typeof row.id !== 'string' || !row.id
     || typeof row.name !== 'string' || !row.name.trim()
     || !(row.code === null || typeof row.code === 'string')
     || typeof row.is_archived !== 'boolean'
     || typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at))) {
-    throw new Error('Ugyldige fagdata.')
+    throw new Error('Ugyldige områdedata.')
   }
   return { id: row.id, name: row.name, code: row.code, is_archived: row.is_archived, created_at: row.created_at }
 }
@@ -50,7 +52,7 @@ export function createSubjectApi(client: Pick<SupabaseClient, 'from'>) {
           .order('created_at', { ascending: true }).order('id', { ascending: true }).abortSignal(signal)
         if (error || !Array.isArray(data)) throw new Error()
         return data.map(mapSubject)
-      } catch { throw new Error('Kunne ikke hente fagene dine.') }
+      } catch { throw new Error('Kunne ikke hente områdene dine.') }
     },
     async create(input: SubjectInput, signal: AbortSignal): Promise<Subject> {
       const values = validateSubject(input)
@@ -58,7 +60,7 @@ export function createSubjectApi(client: Pick<SupabaseClient, 'from'>) {
         const { data, error } = await client.from('subjects').insert(values).select(columns).abortSignal(signal).single()
         if (error) throw new Error()
         return mapSubject(data)
-      } catch { throw new Error('Kunne ikke opprette faget. Kontroller listen før du prøver igjen.') }
+      } catch { throw new Error('Kunne ikke opprette området. Kontroller listen før du prøver igjen.') }
     },
     async edit(id: string, input: SubjectInput, signal: AbortSignal): Promise<Subject> {
       const values = validateSubject(input)
@@ -74,7 +76,7 @@ export function createSubjectApi(client: Pick<SupabaseClient, 'from'>) {
           .eq('id', id).select(columns).abortSignal(signal).single()
         if (error) throw new Error()
         return mapSubject(data)
-      } catch { throw new Error(archived ? 'Kunne ikke arkivere faget.' : 'Kunne ikke aktivere faget.') }
+      } catch { throw new Error(archived ? 'Kunne ikke arkivere området.' : 'Kunne ikke aktivere området.') }
     },
   }
 }

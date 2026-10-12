@@ -100,7 +100,7 @@ test('aggregation splits midnight work and multiple subjects while excluding lon
   assert.deepEqual(summary.subjects.map(value => value.work / 60000), [120, 60, 15])
   assert.equal(summary.mostStudied.id, id(100))
   assert.equal(summary.busiestDay.from, iso(10, 7))
-  assert.equal(summary.subjects.at(-1).name, 'Uten fag')
+  assert.equal(summary.subjects.at(-1).name, 'Annet')
   assert.equal(summary.days[2].subjects.length, 3)
   assert.equal(summary.total, summary.subjects.reduce((sum, value) => sum + value.work, 0))
   for (const value of summary.days) assert.equal(value.total, value.subjects.reduce((sum, subject) => sum + subject.work, 0))

@@ -25,7 +25,7 @@ export function mapHistoryEntry(value: unknown): HistoryEntry {
   if (row.session.ended_at === null || row.segments.some(segment => segment.ended_at === null)) {
     throw new Error('Historikken inneholder en uavsluttet økt eller arbeidsperiode.')
   }
-  if (row.session.subject_id !== null && row.subject === null) throw new Error('Ugyldig fagkobling.')
+  if (row.session.subject_id !== null && row.subject === null) throw new Error('Ugyldig områdekobling.')
   return row as HistoryEntry
 }
 
@@ -55,7 +55,7 @@ export function removeDraftSegment(draft: HistoryDraft, key: string): HistoryDra
 export function prepareHistoryEdit(draft: HistoryDraft, subjects: Subject[]): HistoryEdit {
   const description = draft.description.trim()
   if (Array.from(description).length > 500) throw new Error('Beskrivelsen kan ha maks 500 tegn.')
-  if (draft.subjectId && !subjects.some(subject => subject.id === draft.subjectId)) throw new Error('Velg et av dine egne fag.')
+  if (draft.subjectId && !subjects.some(subject => subject.id === draft.subjectId)) throw new Error('Velg et av dine egne områder.')
   const startedAt = fromLocalDateTime(draft.start, draft.originalStart)
   const endedAt = fromLocalDateTime(draft.end, draft.originalEnd)
   if (Date.parse(endedAt) < Date.parse(startedAt)) throw new Error('Økten kan ikke slutte før den starter.')

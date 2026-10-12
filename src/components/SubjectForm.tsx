@@ -21,26 +21,26 @@ export default function SubjectForm({ subject, disabled, busy, onSave, onCancel 
       setError(null)
       try { validateSubject({ name, code }) }
       catch (validationError) {
-        setError(validationError instanceof Error ? validationError.message : 'Kontroller fagnavn og kode.')
+        setError(validationError instanceof Error ? validationError.message : 'Kontroller områdenavn og kode.')
         return
       }
       if (await onSave({ name, code })) onCancel()
     }}>
       <fieldset disabled={disabled}>
-        <legend>{subject ? 'Rediger fag' : 'Nytt fag'}</legend>
+        <legend>{subject ? 'Rediger område' : 'Nytt område'}</legend>
         <div className="auth-field">
-          <label htmlFor={`${id}-name`}>Fagnavn</label>
+          <label htmlFor={`${id}-name`}>Områdenavn</label>
           <input id={`${id}-name`} value={name} onChange={event => setName(event.target.value)} required autoFocus
             aria-describedby={`${id}-help`} />
         </div>
         <div className="auth-field">
-          <label htmlFor={`${id}-code`}>Fagkode (valgfri)</label>
+          <label htmlFor={`${id}-code`}>Kode (valgfri)</label>
           <input id={`${id}-code`} value={code} onChange={event => setCode(event.target.value)} />
         </div>
         <p id={`${id}-help`} className="subject-help">Maks 120 tegn i navn og 32 tegn i kode.</p>
       </fieldset>
       <div className="subject-actions">
-        <button type="submit" disabled={disabled}>{busy ? 'Lagrer …' : subject ? 'Lagre endringer' : 'Opprett fag'}</button>
+        <button type="submit" disabled={disabled}>{busy ? 'Lagrer …' : subject ? 'Lagre endringer' : 'Opprett område'}</button>
         <button type="button" className="text-button" disabled={busy} onClick={onCancel}>Avbryt</button>
       </div>
       {error && <p role="alert" className="auth-error">{error}</p>}

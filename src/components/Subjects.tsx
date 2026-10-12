@@ -44,22 +44,22 @@ export default function Subjects({ data }: { data: ReturnType<typeof useSubjects
 
   return <section className="dashboard-panel subjects-section" aria-labelledby="subjects-title" aria-busy={data.busy}>
     <header className="subjects-heading">
-      <div><p className="section-label">Organisering</p><h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine fag</h2></div>
-      {!creating && <button type="button" className="secondary-button" disabled={disabled || editing !== null} onClick={() => setCreating(true)}>Nytt fag</button>}
+      <div><p className="section-label">Organisering</p><h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine områder</h2></div>
+      {!creating && <button type="button" className="secondary-button" disabled={disabled || editing !== null} onClick={() => setCreating(true)}>Nytt område</button>}
     </header>
-    <p>Opprett egne fag eller kategorier. Arkiver fag du ikke bruker nå; de kan aktiveres igjen senere.</p>
-    <p role="status">{data.status === 'loading' ? 'Henter fagene dine …' : data.busy ? 'Lagrer …' : data.notice}</p>
+    <p>Bruk områder til studier, egne prosjekter eller annet arbeid. Arkiver områder du ikke bruker nå; de kan aktiveres igjen senere.</p>
+    <p role="status">{data.status === 'loading' ? 'Henter områdene dine …' : data.busy ? 'Lagrer …' : data.notice}</p>
     {data.error && <div role="alert"><p className="auth-error">{data.error}</p>
-      <button className="text-button" type="button" disabled={data.busy} onClick={() => void data.reload()}>Hent fag på nytt</button></div>}
+      <button className="text-button" type="button" disabled={data.busy} onClick={() => void data.reload()}>Hent områder på nytt</button></div>}
     {creating && <SubjectForm disabled={disabled} busy={data.busy} onSave={input => data.save(input)} onCancel={closeForm} />}
     {data.status !== 'loading' && <>
       <section aria-labelledby="active-subjects-title">
-        <h3 id="active-subjects-title">Aktive fag</h3>
-        {active.length ? list(active) : data.status === 'ready' && <p>Du har ingen aktive fag. Opprett ditt første fag med «Nytt fag».</p>}
+        <h3 id="active-subjects-title">Aktive områder</h3>
+        {active.length ? list(active) : data.status === 'ready' && <p>Du har ingen aktive områder. Opprett ditt første område med «Nytt område».</p>}
       </section>
       <details className="archived-subjects">
-        <summary><h3>Arkiverte fag ({archived.length})</h3></summary>
-        {archived.length ? list(archived) : data.status === 'ready' && <p>Du har ingen arkiverte fag.</p>}
+        <summary><h3>Arkiverte områder ({archived.length})</h3></summary>
+        {archived.length ? list(archived) : data.status === 'ready' && <p>Du har ingen arkiverte områder.</p>}
       </details>
     </>}
   </section>

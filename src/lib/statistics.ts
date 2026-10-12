@@ -63,7 +63,7 @@ export function summarizeStatistics(entries: HistoryEntry[], period: StatisticsP
       const work = workMilliseconds(entry.segments, day)
       if (!work) continue
       const id = entry.session.subject_id
-      const subject = daily.get(id) ?? { id, name: entry.subject?.name ?? 'Uten fag', code: entry.subject?.code ?? null, work: 0 }
+      const subject = daily.get(id) ?? { id, name: entry.subject?.name ?? 'Annet', code: entry.subject?.code ?? null, work: 0 }
       subject.work += work
       daily.set(id, subject)
     }

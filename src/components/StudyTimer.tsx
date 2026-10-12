@@ -57,8 +57,8 @@ export default function StudyTimer({ subjects, onFinished }: {
 
   return <section className="dashboard-panel timer-section" aria-labelledby="timer-title" aria-busy={data.busy}>
     <header className="panel-heading">
-      <div><p className="section-label">{current ? 'Din studieøkt' : 'Ny studieøkt'}</p>
-        <h2 id="timer-title" ref={heading} tabIndex={-1}>Studietidtaker</h2></div>
+      <div><p className="section-label">{current ? 'Din arbeidsøkt' : 'Ny arbeidsøkt'}</p>
+        <h2 id="timer-title" ref={heading} tabIndex={-1}>Tidtaker</h2></div>
       <p className={`timer-status ${data.error ? 'is-error' : data.busy || !data.loaded ? 'is-loading' : status === 'running' ? 'is-running' : status === 'paused' ? 'is-paused' : 'is-ready'}`} role="status">
         {!data.loaded && !data.error ? 'Henter aktiv økt …' : data.error ? 'Må kontrolleres'
           : data.busy ? 'Kontrollerer og lagrer …' : current ? status === 'running' ? 'Pågår' : 'Pauset' : 'Klar til å starte'}
@@ -74,7 +74,7 @@ export default function StudyTimer({ subjects, onFinished }: {
     </div>}
     {current && durations ? <div className="timer-current">
       {current.subject?.code && <p className="subject-code">{current.subject.code}</p>}
-      <h3 className="timer-subject">{current.subject?.name ?? 'Faget er ikke lenger tilgjengelig'}</h3>
+      <h3 className="timer-subject">{current.subject?.name ?? 'Området er ikke lenger tilgjengelig'}</h3>
       {current.session.description && <p className="timer-description">{current.session.description}</p>}
       <p className="timer-clock"><span className="clock-label">Faktisk arbeidstid</span><span className="clock-value">{formatDuration(durations.work)}</span></p>
       <p className="timer-meta">Startet <time dateTime={current.session.started_at}>{localTime(current.session.started_at)}</time>.
@@ -89,7 +89,7 @@ export default function StudyTimer({ subjects, onFinished }: {
         <button className="secondary-button" type="button" disabled={disabled}
           onClick={() => void transition({ action: 'stop', sessionId: current.session.id })}>Stopp</button>
       </div>
-      <p className="timer-meta">Stopp økten før du bytter fag eller beskrivelse. En pause avslutter ikke økten.</p>
+      <p className="timer-meta">Stopp økten før du bytter område eller beskrivelse. En pause avslutter ikke økten.</p>
     </div> : data.loaded && <form onSubmit={start}>
       {saved && <div className="timer-saved" role="status">
         <p>Økten er lagret.</p>
@@ -98,12 +98,12 @@ export default function StudyTimer({ subjects, onFinished }: {
           <div><dt>Total klokketid</dt><dd>{formatDuration(saved.elapsed)}</dd></div></dl>
       </div>}
       <fieldset disabled={disabled || subjects.busy || subjects.status !== 'ready' || !active.length}>
-        <legend className="sr-only">Registrer en ny studieøkt</legend>
+        <legend className="sr-only">Registrer en ny arbeidsøkt</legend>
         <div className="auth-field">
-          <label htmlFor="session-subject">Fag</label>
+          <label htmlFor="session-subject">Område</label>
           <select id="session-subject" required value={active.some(subject => subject.id === subjectId) ? subjectId : ''}
             onChange={event => setSubjectId(event.target.value)}>
-            <option value="">Velg et aktivt fag</option>
+            <option value="">Velg et aktivt område</option>
             {active.map(subject => <option key={subject.id} value={subject.id}>{subject.code ? subject.code + ' – ' : ''}{subject.name}</option>)}
           </select>
         </div>
@@ -113,10 +113,10 @@ export default function StudyTimer({ subjects, onFinished }: {
             onChange={event => setDescription(event.target.value)} />
           <small id="session-help">Maks 500 tegn.</small>
         </div>
-        <button className="timer-start" type="submit">Start studieøkt</button>
+        <button className="timer-start" type="submit">Start arbeidsøkt</button>
       </fieldset>
-      {subjects.status === 'ready' && !active.length && <p>Opprett eller aktiver et fag i «Organisering» først.</p>}
-      {subjects.status !== 'ready' && <p>Fagene må hentes før du kan starte. Åpne «Organisering» for å kontrollere fagene.</p>}
+      {subjects.status === 'ready' && !active.length && <p>Opprett eller aktiver et område i «Organisering» først.</p>}
+      {subjects.status !== 'ready' && <p>Områdene må hentes før du kan starte. Åpne «Organisering» for å kontrollere områdene.</p>}
       {validation && <p className="auth-error" role="alert">{validation}</p>}
     </form>}
     {data.loaded && <button className="text-button timer-refresh" type="button" disabled={data.busy}
