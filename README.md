@@ -1,6 +1,6 @@
 # ASInfra Study
 
-Study registrerer studiearbeid og viser faktisk arbeidstid, historikk og ukestatistikk.
+Study registrerer studiearbeid og viser faktisk arbeidstid, historikk og statistikk.
 Produksjon: [study.asinfra.no](https://study.asinfra.no/).
 
 ## Arkitektur og repoansvar
@@ -68,10 +68,22 @@ Build trenger de to browserverdiene ovenfor. Vite bruker `base: '/'` og lager
   øktgrenser og arbeidsperioder kan korrigeres; sletting krever bekreftelse.
   Bekreftede og usikre writes henter data på nytt, uten optimistisk sletting.
   Bekreftet timerstopp/recovery oppdaterer historikk og statistikk uten full refresh.
-- **Ukestatistikk:** ukevalg, total og tid per fag. Browserens lokale tidssone
-  bestemmer mandag 00:00 til neste mandag 00:00. Kalenderaritmetikk håndterer DST;
-  en uke er ikke alltid 168 timer. Alle sider i valgt uke hentes, og segmentene
-  klippes til `[ukeStart, ukeSlutt)`. Økter uten segmenter viser 0 arbeidstid.
+- **Statistikk:** dag, uke og måned i detaljpanelet, med periodevalg, total,
+  mest studert fag og (for uke/måned) mest aktive dag. Browserens lokale kalender
+  bestemmer grensene: midnatt, mandag og den første i måneden. Kalenderaritmetikk
+  håndterer DST; en dag/uke er ikke alltid 24/168 timer. Alle sider i valgt periode
+  hentes separat fra historikkens 25-raders paginering. Kun lukkede arbeidssegmenter
+  telles, klippet til hver lokale dags `[start, slutt)`. Økter uten segmenter gir 0.
+  Bekreftet stopp/recovery oppdaterer også en valgt historisk periode, uten å nullstille valget.
+  Ved bytte mellom dag/uke/måned brukes i dag for en gjeldende periode, ellers dens første dag.
+
+Diagrammene er små SVG-komponenter uten chart-bibliotek: dag viser fagfordeling,
+uke viser syv stablede dagsstolper, måned viser alle kalenderdagene. Månedsdiagrammet
+ruller internt på mobil. Y-aksen tilpasses dataene; null-dager beholdes. Fag-ID
+bestemmer farge og tekstur stabilt på tvers av perioder; teksturer skiller mange
+fargekollisjoner, og «Uten fag» er nøytral. Faglisten og «Vis tallgrunnlag» viser
+tid som `HH:MM:SS`, uten krav om hover eller fargesyn. Beregningen beholder
+millisekundene frem til visning. Like travle dager avgjøres med tidligste dato.
 
 Historikk bruker `study_session_history`, `study_session_history_edit` og
 `study_session_history_delete`. Timeren bruker `study_session_transition` og
@@ -107,13 +119,15 @@ Gamle `/study/`-returer kan beholdes for legacy-lenker; ikke fjern andre appers 
 
 Frontendtestene dekker config/Auth-retur, SDK-kall, mapping, faghandlinger,
 timer/recovery/retry, paginering, edit/delete, usikre writes og segmenttid.
-Ukegrenser, tidsomstilling og inputpresisjon testes i flere tidssoner.
+Dag-/uke-/månedsgrenser, daglig segmentfordeling, skuddår, tidsomstilling,
+fagfarger, hele intervallets paginering, raske periodebytter og inputpresisjon
+testes i flere tidssoner. Rene kalender-/aggregeringshjelpere ligger i
+`src/lib/statistics.ts`; `history-store.ts` håndterer separate avbrytbare lesinger.
 SDK/nettverk simuleres: dette verifiserer ikke ekte hosted Auth eller RLS.
 Database-/RLS-testene eies av [canonical backend](https://github.com/andsolste/asinfra/tree/main/supabase/tests).
 
-Designet er et enkelt MVP. Statistikk finnes kun per uke, uten grafer, eksport,
-mål eller streaks; dette er bevisst utsatt funksjonalitet, ikke feil.
-Redesign og større forbedringer håndteres separat.
+Eksport, mål, streaks og flere statistikkperioder enn dag/uke/måned er utenfor
+dagens funksjonalitet. Større forbedringer håndteres separat.
 
 ## Produksjonssjekkliste etter merge/deploy
 
@@ -126,12 +140,13 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 4. Opprett/rediger/arkiver et testfag og aktiver det igjen.
 5. Start/pause/fortsett, refresh og stopp; samme økt gjenopprettes uten duplikat.
 6. Den ferdige økten vises i historikken uten full refresh; arbeidstid utelater pauser.
-7. Velg forrige/neste/denne uke; kontroller lokal uke, total og fagfordeling,
-   også et segment som krysser en ukegrense.
+7. Velg dag/uke/måned og forrige/neste/gjeldende periode; kontroller diagram,
+   total, fagliste og tallgrunnlag, også segmenter over midnatt og periodegrenser.
+   Test DST og intern rulling i månedsdiagrammet på mobil.
 8. Rediger beskrivelse/fag og en arbeidsperiode. Uendrede tidspunkter beholder
    original presisjon; endrede vises uten millisekunder. Ugyldig overlapp avvises.
 9. Avbryt sletting først; slett så en merket testøkt med bekreftelse.
-10. Reload: korreksjoner består, slettet økt er borte og uketotalen stemmer.
+10. Reload: korreksjoner består, slettet økt er borte og statistikktotalen stemmer.
 11. Test 320/390 px og desktop: ingen horisontal scrolling, leselige tidsfelter,
     labels, Tab/Shift+Tab, synlig fokus, status/feil og fokus etter edit/cancel/delete.
 12. Logg inn som B i en separat nettleserprofil. A/B skal bare se egne fag,

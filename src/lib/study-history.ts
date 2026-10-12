@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { mapSessionRecord } from './study-sessions.ts'
 import type { SessionRecord, StudySession, WorkSegment } from './study-sessions.ts'
 import type { Subject } from './subjects.ts'
-import { fromLocalDateTime, toLocalDateTime, workMilliseconds } from './history-time.ts'
+import { fromLocalDateTime, toLocalDateTime } from './history-time.ts'
 import type { TimeInterval } from './history-time.ts'
 
 export type HistoryEntry = Omit<SessionRecord, 'session' | 'segments'> & {
@@ -77,20 +77,6 @@ export function prepareHistoryEdit(draft: HistoryDraft, subjects: Subject[]): Hi
   return { subjectId: draft.subjectId || null, description, startedAt, endedAt, segments }
 }
 
-export function summarizeWeek(entries: HistoryEntry[], interval: TimeInterval) {
-  const subjects = new Map<string, { id: string | null; name: string; code: string | null; work: number }>()
-  let total = 0
-  for (const entry of entries) {
-    const work = workMilliseconds(entry.segments, interval)
-    if (!work) continue
-    const key = entry.session.subject_id ?? ''
-    const subject = subjects.get(key) ?? { id: entry.session.subject_id, name: entry.subject?.name ?? 'Uten fag',
-      code: entry.subject?.code ?? null, work: 0 }
-    subject.work += work; total += work; subjects.set(key, subject)
-  }
-  return { total, subjects: [...subjects.values()].sort((a, b) => b.work - a.work || a.name.localeCompare(b.name)) }
-}
-
 export function createHistoryApi(client: Pick<SupabaseClient, 'rpc'>) {
   const api = {
     async list(query: HistoryQuery, signal: AbortSignal): Promise<HistoryEntry[]> {
@@ -113,7 +99,7 @@ export function createHistoryApi(client: Pick<SupabaseClient, 'rpc'>) {
         return rows
       } catch { throw new Error('Kunne ikke hente historikken.') }
     },
-    async week(interval: TimeInterval, signal: AbortSignal) {
+    async range(interval: TimeInterval, signal: AbortSignal) {
       const result: HistoryEntry[] = []
       const seen = new Set<string>()
       for (let offset = 0; ; offset += 200) {
