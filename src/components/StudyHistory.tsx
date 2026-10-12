@@ -20,13 +20,13 @@ export default function StudyHistory({ data, subjects }: Props) {
   }, [data.status, data.rows, editing])
   function closeForm() { setEditing(null); heading.current?.focus() }
   async function remove(entry: HistoryEntry) {
-    if (!window.confirm(`Slett økten i ${entry.subject?.name ?? 'uten fag'} fra ${localTime(entry.session.started_at)}? Dette kan ikke angres.`)) return
+    if (!window.confirm(`Slett økten i ${entry.subject?.name ?? 'Annet'} fra ${localTime(entry.session.started_at)}? Dette kan ikke angres.`)) return
     await data.remove(entry.session.id)
     heading.current?.focus()
   }
   return <section className="dashboard-panel history-section" aria-labelledby="history-title" aria-busy={busy || data.status === 'loading' || data.loadingMore}>
       <header className="subjects-heading">
-        <div><p className="section-label">Fullførte økter</p><h2 id="history-title" ref={heading} tabIndex={-1}>Studiehistorikk</h2></div>
+        <div><p className="section-label">Fullførte økter</p><h2 id="history-title" ref={heading} tabIndex={-1}>Arbeidshistorikk</h2></div>
         <button type="button" className="text-button" disabled={busy || editing !== null}
           onClick={() => void data.reload()}>Hent på nytt</button>
       </header>
@@ -36,13 +36,13 @@ export default function StudyHistory({ data, subjects }: Props) {
       {data.error && <p className="auth-error" role="alert">{data.error}</p>}
       {data.listError && <div role="alert"><p className="auth-error">{data.listError}</p>
         <button type="button" className="text-button" disabled={busy} onClick={() => { closeForm(); void data.reload() }}>Prøv igjen</button></div>}
-      {data.status === 'ready' && !data.rows.length && <p>Ingen ferdige studieøkter ennå. Stopp en økt for å lagre den her.</p>}
+      {data.status === 'ready' && !data.rows.length && <p>Ingen ferdige arbeidsøkter ennå. Stopp en økt for å lagre den her.</p>}
       <ul className="history-list">{data.rows.map(entry => <li key={entry.session.id}>
         <article aria-labelledby={'history-' + entry.session.id}>
           <header className="history-entry-heading">
             <div className="history-entry-info">
               {entry.subject?.code && <p className="subject-code">{entry.subject.code}</p>}
-              <h3 id={'history-' + entry.session.id}>{entry.subject?.name ?? 'Uten fag / tidligere fag er slettet'}</h3>
+              <h3 id={'history-' + entry.session.id}>{entry.subject?.name ?? 'Annet / tidligere område er slettet'}</h3>
               <p className="history-date"><time dateTime={entry.session.started_at}>{localTime(entry.session.started_at)}</time>
                 {' → '}<time dateTime={entry.session.ended_at}>{localTime(entry.session.ended_at)}</time></p>
               {entry.session.description && <p className="history-description">{entry.session.description}</p>}

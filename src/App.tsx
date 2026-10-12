@@ -13,7 +13,7 @@ export default function App() {
         : <>
           <AppHeader />
           <main id="study-content" className="auth-layout" tabIndex={-1}>
-            {!supabase ? <p className="auth-section" role="alert">Study mangler gyldig Supabase-konfigurasjon. Kontroller prosjekt-URL og publishable key før appen bygges.</p>
+            {!supabase ? <p className="auth-section" role="alert">Flow mangler gyldig Supabase-konfigurasjon. Kontroller prosjekt-URL og publishable key før appen bygges.</p>
               : loading ? <p className="auth-section" role="status">Henter innlogging …</p>
                 : <>{error && <p role="alert" className="auth-error">{error}</p>}<AuthForm /></>}
           </main>

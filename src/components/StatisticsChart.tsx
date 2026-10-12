@@ -21,7 +21,7 @@ function SubjectPatterns({ prefix, subjects }: { prefix: string; subjects: Subje
 
 export function StatisticsLegend({ subjects }: { subjects: SubjectWork[] }) {
   const prefix = useId()
-  return <ul className="statistics-legend" aria-label="Arbeidstid per fag">{subjects.map(subject =>
+  return <ul className="statistics-legend" aria-label="Arbeidstid per område">{subjects.map(subject =>
     <li key={key(subject)}>
       <svg className="statistics-swatch" viewBox="0 0 20 20" aria-hidden="true">
         <SubjectPatterns prefix={prefix} subjects={[subject]} />
@@ -51,8 +51,8 @@ export default function StatisticsChart({ summary, period }: { summary: Statisti
       tabIndex={month ? 0 : undefined} role={month ? 'region' : undefined} aria-label={month ? 'Diagram for hele måneden, rullbart' : undefined}>
       <svg className={month ? 'statistics-svg is-month' : 'statistics-svg'} viewBox={`0 0 ${width} ${height}`}
         role="img" aria-labelledby={`${prefix}-title ${prefix}-desc`}>
-        <title id={`${prefix}-title`}>{day ? 'Arbeidstid fordelt på fag' : 'Daglig arbeidstid fordelt på fag'}</title>
-        <desc id={`${prefix}-desc`}>Kun avsluttede arbeidsperioder, uten pauser. Fag, datoer og eksakt tid finnes i faglisten og under Vis tallgrunnlag.</desc>
+        <title id={`${prefix}-title`}>{day ? 'Arbeidstid fordelt på områder' : 'Daglig arbeidstid fordelt på områder'}</title>
+        <desc id={`${prefix}-desc`}>Kun avsluttede arbeidsperioder, uten pauser. Områder, datoer og eksakt tid finnes i områdelisten og under Vis tallgrunnlag.</desc>
         <SubjectPatterns prefix={prefix} subjects={summary.subjects} />
         <g aria-hidden="true">
           {day ? summary.subjects.map(subject => {
@@ -99,7 +99,7 @@ export function StatisticsTable({ summary, period }: { summary: StatisticsSummar
       <table>
         <caption>Arbeidstid i lokal tid · timer:minutter:sekunder</caption>
         {period.kind === 'day' ? <>
-          <thead><tr><th scope="col">Fag</th><th scope="col">Arbeidstid</th></tr></thead>
+          <thead><tr><th scope="col">Område</th><th scope="col">Arbeidstid</th></tr></thead>
           <tbody>{summary.subjects.map(subject => <tr key={key(subject)}><th scope="row">{subjectLabel(subject)}</th><td>{formatDuration(subject.work)}</td></tr>)}</tbody>
           <tfoot><tr><th scope="row">Totalt</th><td>{formatDuration(summary.total)}</td></tr></tfoot>
         </> : <>

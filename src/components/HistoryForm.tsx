@@ -36,12 +36,12 @@ export default function HistoryForm({ entry, subjects, disabled, busy, onSave, o
     <fieldset disabled={disabled}>
       <legend>Rediger ferdig økt</legend>
       <div className="auth-field">
-        <label htmlFor={id + '-subject'}>Fag</label>
+        <label htmlFor={id + '-subject'}>Område</label>
         <select id={id + '-subject'} autoFocus value={draft.subjectId}
           onChange={event => setDraft({ ...draft, subjectId: event.target.value })}>
-          <option value="">Uten fag / tidligere fag er slettet</option>
-          <optgroup label="Aktive fag">{options(active)}</optgroup>
-          <optgroup label="Arkiverte fag">{options(archived)}</optgroup>
+          <option value="">Annet / tidligere område er slettet</option>
+          <optgroup label="Aktive områder">{options(active)}</optgroup>
+          <optgroup label="Arkiverte områder">{options(archived)}</optgroup>
         </select>
       </div>
       <div className="auth-field">

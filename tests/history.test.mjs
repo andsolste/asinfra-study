@@ -77,7 +77,7 @@ test('weekly totals group by subject ID, distinguish equal names and collect del
   const summary = summarizeStatistics([a, b, c], interval)
   assert.equal(summary.total, 270 * 60000)
   assert.equal(summary.subjects.length, 3)
-  assert.equal(summary.subjects.find(row => row.id === null).name, 'Uten fag')
+  assert.equal(summary.subjects.find(row => row.id === null).name, 'Annet')
   assert.equal(summary.subjects.find(row => row.id === otherId).work, 90 * 60000)
 })
 

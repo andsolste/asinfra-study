@@ -41,7 +41,7 @@ export default function Account({ session }: { session: Session }) {
     <>
       <AppHeader>
         <div className="account-controls">
-          <p className="account-email"><span>Innlogget som</span><strong>{session.user.email ?? 'Study-bruker'}</strong></p>
+          <p className="account-email"><span>Innlogget som</span><strong>{session.user.email ?? 'Flow-bruker'}</strong></p>
           <button className="secondary-button" type="button" disabled={signingOut} onClick={signOut}>{signingOut ? 'Logger ut …' : 'Logg ut'}</button>
         </div>
         {error && <p role="alert" className="auth-error">{error}</p>}
