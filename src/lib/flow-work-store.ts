@@ -1,0 +1,83 @@
+import type { FlowCatalog, FlowCommand, FlowState, FlowSnapshot, createFlowApi } from './flow-work.ts'
+import { FlowActionError } from './flow-work.ts'
+
+export type FlowPhase = 'loading' | 'idle' | 'running' | 'paused' | 'recovering' | 'error'
+type State = { phase: FlowPhase; data: FlowState | null; closed: FlowSnapshot | null; catalog: FlowCatalog; pending: FlowCommand | null;
+  error: string | null; notice: string | null; anchor: { server: number; received: number } | null }
+type Options = { timezone: () => string | null; clock?: () => number }
+
+// No persisted local timer. Snapshots, IDs and server clock are authoritative.
+export function createFlowStore(api: ReturnType<typeof createFlowApi>, options: Options) {
+  const clock = options.clock ?? (() => performance.now())
+  let state: State = { phase: 'loading', data: null, closed: null, catalog: { areas: [], tasks: [] }, pending: null, error: null, notice: null, anchor: null }
+  let request: AbortController | null = null, connected = false, queued = false
+  const listeners = new Set<() => void>()
+  const update = (values: Partial<State>) => { state = { ...state, ...values }; listeners.forEach(fn => fn()) }
+  function accept(data: FlowState, catalog: FlowCatalog, received: number, closed: FlowSnapshot | null, notice: string | null = null) {
+    const current = data.current
+    update({ data, catalog, closed, phase: current ? current.segments.some(s => s.ended_at === null) ? 'running' : 'paused' : 'idle',
+      pending: null, error: null, notice, anchor: { server: Date.parse(data.server_time), received } })
+  }
+  async function read(signal: AbortSignal) {
+    const previous = state.data?.current
+    const [work, catalog] = await Promise.all([
+      api.load(signal, options.timezone()).then(data => ({ data, received: clock() })), api.catalog(signal),
+    ])
+    let closed = state.closed
+    if (!work.data.current && previous) {
+      const final = await api.snapshot(signal, previous.work_day.id)
+      if (final?.work_day.ended_at) closed = final
+    }
+    return { ...work, catalog, closed }
+  }
+  async function run(command: FlowCommand | null): Promise<boolean> {
+    if (!connected || request) return false
+    const controller = new AbortController(); request = controller
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    update({ phase: state.data ? 'recovering' : 'loading', error: null, ...(command ? { pending: command } : {}) })
+    let confirmed = false
+    try {
+      if (command) await api.act(command, controller.signal)
+      const result = await read(controller.signal)
+      if (request !== controller) return false
+      const next = command?.kind === 'start' ? command.segmentId : command?.nextId
+      const applied = !command || (next ? result.data.current?.segments.some(s => s.id === next)
+        : command.kind === 'activity' && !result.data.current?.segments.some(s => s.id === command.expectedId && s.ended_at === null))
+      accept(result.data, result.catalog, result.received, result.closed, applied ? null : 'Status er endret i en annen fane eller dagen er utløpt. Kontroller aktiviteten.')
+      confirmed = Boolean(applied)
+    } catch (error) {
+      if (request !== controller) return false
+      // A failed/unknown write may already be committed. READ, never blindly create
+      // another UUID/segment. If this read also fails, preserve the exact retry IDs.
+      if (command && !controller.signal.aborted) {
+        try {
+          const result = await read(controller.signal)
+          if (request === controller) accept(result.data, result.catalog, result.received, result.closed,
+            `${error instanceof FlowActionError ? error.message : 'Handlingen kunne ikke bekreftes.'} Status er hentet på nytt; kontroller aktiviteten før du fortsetter.`)
+        } catch {
+          if (request === controller) update({ phase: 'error', error: 'Kunne ikke kontrollere handlingen. Arbeid kan være lagret. Hent status eller prøv samme handling igjen.' })
+        }
+      } else update({ phase: 'error', error: 'Kunne ikke hente sikker status. Kontroller forbindelsen og prøv igjen.' })
+    } finally {
+      clearTimeout(timeout)
+      if (request === controller) {
+        request = null
+        if (queued && connected) { queued = false; void run(null) }
+      }
+    }
+    return confirmed
+  }
+  return {
+    subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn) } },
+    getSnapshot: () => state,
+    now: () => state.anchor ? state.anchor.server + Math.max(0, clock() - state.anchor.received) : 0,
+    connect() { connected = true; void run(null) },
+    disconnect() { connected = false; queued = false; request?.abort(); request = null },
+    refresh() { if (request) { queued = true; return Promise.resolve(false) } return run(null) },
+    dispatch(command: FlowCommand) {
+      if (!['idle', 'running', 'paused'].includes(state.phase) || state.pending) return Promise.resolve(false)
+      return run(command)
+    },
+    retry() { return run(state.pending) },
+  }
+}

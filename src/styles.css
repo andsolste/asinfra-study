@@ -118,6 +118,22 @@ p.timer-status.is-loading { color: var(--blue); }
 .timer-controls button { min-width: 7rem; }
 .timer-start { min-width: 10rem; }
 .timer-refresh { margin-top: var(--space-4); }
+.flow-total { display: grid; gap: var(--space-2); width: 100%; margin-block: var(--space-8); padding: var(--space-4); background: transparent; border-color: var(--border); color: var(--text-primary); text-align: center; }
+.flow-total:hover:not(:disabled) { background: var(--surface-elevated); border-color: var(--purple-light); }
+.flow-total .clock-value { font-size: clamp(2.25rem, 7vw, 5rem); overflow-wrap: normal; }
+.flow-current, .flow-idle { max-width: 40rem; margin-inline: auto; text-align: center; }
+.flow-idle > button { max-width: 100%; }
+.flow-period { display: grid; gap: .25rem; margin-block: var(--space-6); font-variant-numeric: tabular-nums; }
+.flow-period strong { font-size: 1.65rem; font-weight: 500; }
+.flow-period span { color: var(--text-muted); font-size: .8rem; }
+.flow-picker { max-width: 40rem; margin-inline: auto; }
+.flow-day-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--space-6); padding-block: var(--space-6); margin-block: var(--space-6); border-block: 1px solid var(--border); }
+.flow-day-metrics dt { font-size: .85rem; color: var(--text-muted); }
+.flow-day-metrics dd { margin: .5rem 0 0; font-variant-numeric: tabular-nums; }
+.flow-period-list { padding-left: 1.25rem; }
+.flow-period-list li { padding-block: .75rem; border-bottom: 1px solid var(--border); }
+.flow-period-list p { margin: .25rem 0; color: var(--text-secondary); font-size: .85rem; }
+.legacy-panel-note { padding-left: var(--space-4); border-left: 2px solid var(--blue); color: var(--text-secondary); font-size: .875rem; }
 .timer-saved { margin-block: var(--space-6); padding-left: var(--space-4); border-left: 2px solid var(--success); }
 .timer-saved p { color: var(--success); font-weight: 600; }
 .timer-saved dl { margin: 0; font-size: .85rem; }

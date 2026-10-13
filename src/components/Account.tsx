@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import Subjects from './Subjects'
 import AppHeader from './AppHeader'
-import StudyTimer from './StudyTimer'
+import FlowTimer from './FlowTimer'
 import StudyHistory from './StudyHistory'
 import StudyStatistics from './StudyStatistics'
 import DetailPanel from './DetailPanel'
@@ -47,7 +47,7 @@ export default function Account({ session }: { session: Session }) {
         {error && <p role="alert" className="auth-error">{error}</p>}
       </AppHeader>
       <main id="study-content" className="timer-workspace" tabIndex={-1}>
-        <StudyTimer subjects={subjects} onFinished={history.reload} />
+        <FlowTimer organizationVersion={subjects.subjects} onCutover={history.reload} />
         <nav className="detail-actions" aria-label="Detaljvisninger">
           {(Object.keys(detailPanels) as Panel[]).map(key => <button key={key} type="button"
             className="secondary-button" aria-haspopup="dialog" aria-controls="study-details"
@@ -57,6 +57,7 @@ export default function Account({ session }: { session: Session }) {
       <DetailPanel open={panel !== null} title={panel ? detailPanels[panel] : ''}
         returnFocus={panelOpener.current} busy={panelBusy}
         hasForms={panel === 'history' || panel === 'subjects'} onClose={() => setPanel(null)}>
+        {(panel === 'statistics' || panel === 'history') && <p className="legacy-panel-note">Denne visningen viser tidligere registreringer fra den gamle tidtakeren. Native Flow-arbeid vises i dagsdetaljene og kobles til historikk og statistikk i en senere fase.</p>}
         {panel === 'statistics' && <StudyStatistics data={history} />}
         {panel === 'history' && <StudyHistory data={history} subjects={subjects} />}
         {panel === 'subjects' && <Subjects data={subjects} />}

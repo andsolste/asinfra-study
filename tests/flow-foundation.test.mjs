@@ -4,7 +4,7 @@ import test from 'node:test'
 
 const source = path => readFile(new URL('../' + path, import.meta.url), 'utf8')
 
-test('Flow phase 1 brands the existing app without changing its domain or activating native APIs', async () => {
+test('Flow branding keeps its domain and preserves the separate legacy compatibility APIs', async () => {
   const header = await source('src/components/AppHeader.tsx')
   const html = await source('index.html')
   assert.match(header, /<h1>Flow<\/h1>/)

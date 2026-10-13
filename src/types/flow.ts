@@ -1,6 +1,6 @@
-/** Native Flow foundation contract. Not activated by the current legacy Study UI.
+/** Native Flow contract, separate from the retained legacy history API.
  * UUIDs/date/timestamps are serialized strings; ownership is supplied by auth.uid().
- * This is not a StudySession alias. Runtime RPC validation comes with #11/#12.
+ * This is not a StudySession alias. Runtime validation lives in lib/flow-work.ts.
  */
 export type FlowArea = {
   id: string

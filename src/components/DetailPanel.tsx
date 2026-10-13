@@ -2,16 +2,18 @@ import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
 type Props = {
+  id?: string
   open: boolean
   title: string
   busy: boolean
   hasForms: boolean
   returnFocus: HTMLElement | null
+  fallbackFocus?: HTMLElement | null
   onClose: () => void
   children: ReactNode
 }
 
-export default function DetailPanel({ open, title, busy, hasForms, returnFocus, onClose, children }: Props) {
+export default function DetailPanel({ id = 'study-details', open, title, busy, hasForms, returnFocus, fallbackFocus, onClose, children }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
 
@@ -23,11 +25,12 @@ export default function DetailPanel({ open, title, busy, hasForms, returnFocus, 
       closeButton.current?.focus()
     } else if (!open && element.open) {
       element.close()
-      returnFocus?.focus()
+      if (returnFocus?.isConnected) returnFocus.focus()
+      else fallbackFocus?.focus()
     }
-  }, [open, returnFocus])
+  }, [open, returnFocus, fallbackFocus])
 
-  return <dialog id="study-details" ref={dialog} className="detail-panel" aria-labelledby="detail-title"
+  return <dialog id={id} ref={dialog} className="detail-panel" aria-labelledby={`${id}-title`}
     onCancel={event => { event.preventDefault(); if (!busy) onClose() }}
     onKeyDown={event => {
       if (event.key !== 'Tab') return
@@ -43,14 +46,14 @@ export default function DetailPanel({ open, title, busy, hasForms, returnFocus, 
     }}
     onClose={() => { if (open && !dialog.current?.open) onClose() }}>
     <header className="detail-panel-header">
-      <h2 id="detail-title">{title}</h2>
+      <h2 id={`${id}-title`}>{title}</h2>
       <button ref={closeButton} type="button" className="secondary-button" aria-disabled={busy}
-        aria-describedby={busy ? 'detail-busy' : undefined}
+        aria-describedby={busy ? `${id}-busy` : undefined}
         aria-label={`Lukk ${title}`} onClick={() => { if (!busy) onClose() }}>Lukk</button>
     </header>
     <div className="detail-panel-content">
       {hasForms && <p className="detail-panel-hint">Ulagrede skjemaendringer forkastes når du lukker panelet.</p>}
-      {busy && <p id="detail-busy" role="status">Vent til lagringen er kontrollert før du lukker.</p>}
+      {busy && <p id={`${id}-busy`} role="status">Vent til lagringen er kontrollert før du lukker.</p>}
       {children}
     </div>
   </dialog>
