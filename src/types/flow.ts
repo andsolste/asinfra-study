@@ -17,6 +17,7 @@ export type FlowTask = {
   description: string
   deadline_at: string | null
   created_at: string
+  updated_at: string
 } & (
   | { status: 'active'; completed_at: null }
   | { status: 'completed'; completed_at: string }

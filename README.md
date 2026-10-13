@@ -1,8 +1,8 @@
 # ASInfra Flow
 
-Flow registrerer faktisk arbeidstid og viser områder, historikk og statistikk.
+Flow registrerer faktisk arbeidstid og viser områder, oppgaver, historikk og statistikk.
 Flow er foreløpig publisert på [study.asinfra.no](https://study.asinfra.no/) under
-Flow v1-overgangen. Domenet, Pages og Supabase Auth-returer endres ikke i #11.
+Flow v1-overgangen. Domenet, Pages og Supabase Auth-returer beholdes.
 
 ## Arkitektur og repoansvar
 
@@ -19,11 +19,10 @@ Frontend ble opprinnelig trukket ut av hovedrepoet; den gamle
 
 ### Flow v1, fase #11: native arbeidsdag og tidtaker
 
-**Backendmigrasjonen `20261013090000_activate_flow_workday.sql` må reviewes og
-deployes før denne frontend-PR-en merges.** Den er ikke deployet av denne PR-en.
+Fundamentet `20261012180000` og native timer/cutover `20261013090000` er deployet.
 Ingen stille fallback til legacy timer brukes dersom nødvendig backend mangler.
 
-`FlowTimer` → `useFlowWorkDay` → `flow-work-store.ts` / `flow-work.ts` er den nye
+`Account` → én delt `useFlowWorkDay` → `flow-work-store.ts` / `flow-work.ts` er
 timerflyten, med eget domene i `src/types/flow.ts` og runtime-validerte RPC-svar.
 Tilstander: loading / idle / running / paused / recovering / error. En dag opprettes
 først ved valgt aktivitet, aldri ved login/load/picker. **Annet = null område**,
@@ -67,9 +66,45 @@ cutover, ikke flyttes inn i native tid. Alle gamle RPC-er beholdes. `StudyTimer`
 beholdes som legacy referanse/testdekning, men monteres ikke i dashboardet.
 
 Se [canonical backend-dokumentasjon](https://github.com/andsolste/asinfra/blob/main/supabase/README.md).
-Migrations kopieres aldri hit. #12 bygger task CRUD/frister/kø; #13 kombinerer
-historikk/statistikk; #7 bygger eksport; #14 flytter domenet. Lifetime task time
-og full oppgaveanalyse er utsatt. Ingen hosted-, DNS- eller Auth-endringer utføres her.
+Migrations kopieres aldri hit. #13 kombinerer historikk/statistikk; #7 bygger
+eksport; #14 flytter domenet. Ingen hosted-, DNS- eller Auth-endringer utføres her.
+
+### Flow v1, fase #12: oppgaver, frister og arbeidskø
+
+**Backendmigrasjonen `20261013120000_add_flow_tasks.sql` i canonical backend
+må reviewes og deployes før denne frontenden merges/deployes.** Den er ikke
+deployet av denne PR-en. Oppgaver bruker `flow_task_save`, `flow_task_status`
+og `flow_task_time`, med eksisterende RLS og native segmenter.
+
+`TaskQueue`, `Tasks` og `FlowTimer` deler samme store, katalog, serverklokke og
+recovery via `Account`. `flow-activity.ts` bygger én felles start/bytte-kommando;
+Start fra køen bruker samme atomiske timer-RPC som aktivitetsvelgeren.
+Oppgave-writes går gjennom `flow-tasks.ts` og samme stores serialiserte dispatch.
+Etter writes leses både timer og katalog på nytt, uten separate task-cacher.
+Mistet svar reconciles ved read; ved også mislykket read beholdes samme kommando
+for eksplisitt retry. Nye oppgaver beholder create-UUID ved retry.
+
+Køen viser inntil fem aktive oppgaver. Full visning ligger i Oppgaver-panelet:
+ny/rediger, fullfør/gjenåpne og sammenleggbare fullførte oppgaver. Sortering er
+eldste forfalte frist → nærmeste kommende frist → uten frist, med `created_at`
+og `id` som stabil tie-breaker. Katalogen hentes i sider à 500 slik at API-ens
+radgrense ikke skjuler eldre oppgaver. Ingen automatisk fullføring skjer ved frist.
+
+Frist velges som lokal dato/tid og lagres absolutt. Eksisterende DST-helper
+avviser ikke-eksisterende/gjentatte nye klokkeslett og bevarer uendret original
+presisjon. Visningen bruker lokale kalenderdatoer for i dag/i morgen; forfalt
+viser hele elapsed 24-timersdager, ellers hele timer/under én time. Andre datoer
+viser dato og klokkeslett. Fristen er uavhengig av arbeidsdagens 04:00-grense.
+
+Fullføring av nåværende oppgave lukker perioden serverstyrt og pauser dagen.
+Gjenåpning starter ikke arbeid. Området kan først flyttes når oppgaven ikke har
+åpen periode; historiske segmenter beholder opprinnelig område. Arkivert område
+hindrer Start, men oppgaven kan redigeres/fullføres/flyttes til aktivt område eller Annet.
+
+Detaljer viser nåværende periode og dagens sum fra native snapshot. Totalen
+hentes med en eierbegrenset aggregasjons-RPC og viser tidspunkt for siste kontroll;
+Oppdater total henter ny sum. Pause og legacy beskrivelser teller aldri som task-tid.
+Full native Dag/Uke/Måned-historikk/statistikk hører fortsatt til #13.
 
 ## Lokal utvikling
 
@@ -210,7 +245,9 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 17. Bruk eksisterende og nyopprettet område; arkiver siste aktivitet og trykk Fortsett: gyldig nytt valg kreves. Historiske segmenter består.
 18. Kontroller cutoff, sleep/reload/focus/reconnect: dagen lukkes ved lagret 04:00, og ny aktivitet starter ikke automatisk. Ny dag bruker korrekt zone/DST.
 
-Deployrekkefølge for #11: review backend → merge backend → kontroller project-ref
+Deployrekkefølge for #12: review backend → merge backend → kontroller project-ref
 og `supabase migration list` → `db push --dry-run` → godkjent `db push` → kontroller
-gammel frontend før noen bruker cutover → merge frontend → smoke-test punktene over.
+eksisterende timer og task-RLS → merge frontend → smoke-test punktene over samt
+opprett/rediger/frister, start/bytte fra kø, fullføring mens running, gjenåpning,
+områdeflytting etter pause, arkivert område, task-tid og refresh/recovery i to faner.
 Ingen hosted migration eller merge utføres som del av implementasjonen.

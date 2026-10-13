@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { useFlowWorkDay } from '../hooks/useFlowWorkDay'
-import { activityName, activityUsable, browserTimezone, flowDurations } from '../lib/flow-work'
-import type { FlowActivity, FlowCommand } from '../lib/flow-work'
+import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
+import { activityName, activityUsable, flowDurations } from '../lib/flow-work'
+import type { FlowActivity } from '../lib/flow-work'
+import { startActivityCommand } from '../lib/flow-activity'
 import { formatDuration } from '../lib/study-sessions'
 import DetailPanel from './DetailPanel'
+import FlowFeedback from './FlowFeedback'
 
-export default function FlowTimer({ organizationVersion, onCutover }: {
-  organizationVersion: readonly { id: string }[]; onCutover: () => void
+export default function FlowTimer({ data, organizationVersion, onCutover }: {
+  data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void
 }) {
-  const data = useFlowWorkDay()
   const current = data.data?.current ?? null
   const open = current?.segments.find(s => s.ended_at === null)
   const last = open ?? current?.segments.at(-1)
@@ -45,19 +46,12 @@ export default function FlowTimer({ organizationVersion, onCutover }: {
     setTaskId(usable ? lastActivity.taskId ?? '' : '')
     setPanel('activity')
   }
-  function activityCommand(activity: FlowActivity): FlowCommand {
-    if (current) return { kind: 'activity', dayId: current.work_day.id,
-      expectedId: open?.id ?? null, expectedCount: current.segments.length, nextId: crypto.randomUUID(), ...activity }
-    const zone = browserTimezone(), boundary = data.data?.next_boundary_at
-    if (!zone || !boundary) throw new Error('En gyldig IANA-tidssone må være tilgjengelig før du starter. Kontroller systemets tidssone og hent status på nytt.')
-    return { kind: 'start', dayId: crypto.randomUUID(), segmentId: crypto.randomUUID(), timezone: zone, boundary, ...activity }
-  }
   async function choose(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setValidation(null)
     try {
       const activity = { areaId: areaId || null, taskId: taskId || null }
       if (!activityUsable(activity, data.catalog)) throw new Error('Aktiviteten er ikke tilgjengelig. Velg et aktivt område eller en aktiv oppgave.')
-      if (await data.dispatch(activityCommand(activity))) setPanel(null)
+      if (await data.dispatch(startActivityCommand(activity, data.data, data.catalog))) setPanel(null)
     } catch (error) { setValidation(error instanceof Error ? error.message : 'Kontroller aktiviteten.') }
   }
   async function pause() {
@@ -68,15 +62,11 @@ export default function FlowTimer({ organizationVersion, onCutover }: {
   }
   async function resume(element: HTMLElement) {
     if (!last || !activityUsable(lastActivity, data.catalog)) { showActivity(element); return }
-    await data.dispatch(activityCommand(lastActivity)); heading.current?.focus()
+    await data.dispatch(startActivityCommand(lastActivity, data.data, data.catalog)); heading.current?.focus()
   }
   const status = { loading: 'Henter Flow-dagen …', idle: 'Klar til å arbeide', running: 'Arbeider',
     paused: 'Pauset', recovering: 'Kontrollerer status …', error: 'Status må kontrolleres' }[data.phase]
-  const notice = <>{data.notice && <p role="status">{data.notice}</p>}
-    {data.error && <div className="recovery-message" role="alert"><p>{data.error}</p>
-      <div className="subject-actions"><button type="button" disabled={busy} onClick={() => void data.reload()}>Hent status</button>
-        {data.pending && <button type="button" className="secondary-button" disabled={busy} onClick={() => void data.retry()}>Prøv samme handling igjen</button>}
-      </div></div>}</>
+  const notice = <FlowFeedback data={data} />
 
   return <>
     <section className="dashboard-panel timer-section flow-timer" aria-labelledby="flow-timer-title" aria-busy={busy}>
