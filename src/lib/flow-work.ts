@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FlowArea, FlowTask, FlowWorkDay, FlowWorkSegment } from '../types/flow.ts'
+import { createTaskApi } from './flow-tasks.ts'
 
 export type FlowActivity = { areaId: string | null; taskId: string | null }
 export type FlowSnapshot = { work_day: FlowWorkDay; segments: FlowWorkSegment[]; server_time: string }
@@ -55,7 +56,7 @@ export function mapFlowArea(value: unknown): FlowArea {
 export function mapFlowTask(value: unknown): FlowTask {
   const source = row(value), status = source.status, completed = optionalTime(source.completed_at)
   const fields = { id: id(source.id), area_id: optionalId(source.area_id), title: text(source.title, 200, true),
-    description: text(source.description, 2000), deadline_at: optionalTime(source.deadline_at), created_at: timestamp(source.created_at) }
+    description: text(source.description, 2000), deadline_at: optionalTime(source.deadline_at), created_at: timestamp(source.created_at), updated_at: timestamp(source.updated_at) }
   if (status === 'active' && completed === null) return { ...fields, status, completed_at: null }
   if (status === 'completed' && completed !== null) return { ...fields, status, completed_at: completed }
   throw invalid()
@@ -113,6 +114,7 @@ export function activityName(activity: FlowActivity, catalog: FlowCatalog) {
 }
 export function createFlowApi(client: Pick<SupabaseClient, 'rpc' | 'from'>) {
   return {
+    ...createTaskApi(client),
     async snapshot(signal: AbortSignal, dayId: string): Promise<FlowSnapshot | null> {
       const { data, error } = await client.rpc('flow_work_day_snapshot', { p_work_day_id: dayId }).abortSignal(signal)
       if (error) throw new Error('Kunne ikke hente avsluttet dagsstatus.')
@@ -126,12 +128,20 @@ export function createFlowApi(client: Pick<SupabaseClient, 'rpc' | 'from'>) {
       } catch { throw new Error('Kunne ikke hente Flow-dagen. Kontroller forbindelsen og prøv igjen.') }
     },
     async catalog(signal: AbortSignal): Promise<FlowCatalog> {
+      async function all(table: string, columns: string): Promise<unknown[]> {
+        const rows: unknown[] = []
+        for (let offset = 0; ; offset += 500) {
+          const { data, error } = await client.from(table).select(columns).order('created_at').order('id').range(offset, offset + 499).abortSignal(signal)
+          if (error || !Array.isArray(data)) throw new Error('Kunne ikke hente områder og oppgaver.')
+          rows.push(...data)
+          if (data.length < 500) return rows
+        }
+      }
       const [areas, tasks] = await Promise.all([
-        client.from('flow_areas').select('id,name,code,is_archived,created_at').order('created_at').order('id').abortSignal(signal),
-        client.from('flow_tasks').select('id,area_id,title,description,deadline_at,status,completed_at,created_at').order('created_at').order('id').abortSignal(signal),
+        all('flow_areas', 'id,name,code,is_archived,created_at'),
+        all('flow_tasks', 'id,area_id,title,description,deadline_at,status,completed_at,created_at,updated_at'),
       ])
-      if (areas.error || tasks.error || !Array.isArray(areas.data) || !Array.isArray(tasks.data)) throw new Error('Kunne ikke hente områder og oppgaver.')
-      const mapped = { areas: areas.data.map(mapFlowArea), tasks: tasks.data.map(mapFlowTask) }
+      const mapped = { areas: areas.map(mapFlowArea), tasks: tasks.map(mapFlowTask) }
       if (new Set(mapped.areas.map(a => a.id)).size !== mapped.areas.length || new Set(mapped.tasks.map(t => t.id)).size !== mapped.tasks.length) throw invalid()
       return mapped
     },

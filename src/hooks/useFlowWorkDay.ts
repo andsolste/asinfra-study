@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { browserTimezone, createFlowApi } from '../lib/flow-work'
 import { createFlowStore } from '../lib/flow-work-store'
 
+export type FlowWorkspaceData = ReturnType<typeof useFlowWorkDay>
 export function useFlowWorkDay() {
   const [store] = useState(() => createFlowStore(createFlowApi(supabase!), { timezone: browserTimezone }))
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)

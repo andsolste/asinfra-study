@@ -8,7 +8,7 @@ import { createFlowStore } from '../src/lib/flow-work-store.ts'
 const id = n => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const time = h => `2026-10-13T${h}:00Z`
 const area = { id: id(2), name: 'ASInfra', code: 'ASI', is_archived: false, created_at: time('08:00') }
-const task = { id: id(3), area_id: area.id, title: 'Utvikle Flow', description: '', deadline_at: null, status: 'active', completed_at: null, created_at: time('08:00') }
+const task = { id: id(3), area_id: area.id, title: 'Utvikle Flow', description: '', deadline_at: null, status: 'active', completed_at: null, created_at: time('08:00'), updated_at: time('08:00') }
 const catalog = { areas: [area], tasks: [task] }
 function fixture(mode = 'running') {
   return { work_day: { id: id(1), logical_date: '2026-10-13', timezone: 'UTC', boundary_at: time('04:00'),
