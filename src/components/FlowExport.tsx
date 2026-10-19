@@ -25,7 +25,7 @@ export default function FlowExport({ history }: { history: FlowHistoryData }) {
         onClick={() => select(changeFlowKind(displayed, k.kind, history.now(), history.timezone, history.statistics?.task_date))}>{k.label}</button>)}</div></header>
     <div className="statistics-period"><p className="statistics-period-label">{flowPeriodLabel(displayed)}</p>{displayed.kind !== 'total' && <div className="statistics-period-controls" role="group" aria-label="Velg eksportperiode">
       <button type="button" className="secondary-button" aria-label={`Forrige ${selected.unit}`} disabled={!displayed.anchor} onClick={() => select(shiftFlowPeriod(displayed, -1))}>←</button>
-      <button type="button" className="secondary-button" onClick={() => select({ ...currentPeriod(period.kind, history.now(), history.timezone), anchor: null })}>{selected.current}</button>
+      <button type="button" className="secondary-button" onClick={() => select(currentPeriod(period.kind, history.now(), history.timezone, history.statistics?.task_date))}>{selected.current}</button>
       <button type="button" className="secondary-button" aria-label={`Neste ${selected.unit}`} disabled={!displayed.anchor} onClick={() => select(shiftFlowPeriod(displayed, 1))}>→</button>
     </div>}</div>
     <details className="statistics-policy"><summary>Tidssone og datagrunnlag</summary>

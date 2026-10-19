@@ -57,8 +57,8 @@ export function currentLogicalDate(now = Date.now(), zone: string | null = brows
   const date = `${part('year')}-${part('month')}-${part('day')}`
   return Number(part('hour')) < 4 ? addDays(date, -1) : date
 }
-export function currentPeriod(kind: PeriodKind, now = Date.now(), zone: string | null = browserTimezone()): FlowPeriod {
-  return { kind, anchor: kind === 'total' ? null : currentLogicalDate(now, zone) }
+export function currentPeriod(kind: PeriodKind, now = Date.now(), zone: string | null = browserTimezone(), nativeToday: string | null = null): FlowPeriod {
+  return { kind, anchor: kind === 'total' ? null : nativeToday ?? currentLogicalDate(now, zone) }
 }
 export function periodDates(period: FlowPeriod) {
   if (period.kind === 'total') return null

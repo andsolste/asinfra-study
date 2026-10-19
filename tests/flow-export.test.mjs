@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createClient } from '@supabase/supabase-js'
 import { csvHeaders,csvHeader,csvRow,csvText,durationClock,durationSeconds,exportFilename,mapExportPage,createExportApi,downloadCsv,timestampMicroseconds } from '../src/lib/flow-export.ts'
 import { createExportStore } from '../src/lib/flow-export-store.ts'
-import { mapFlowStatistics,periodDates,addDays } from '../src/lib/flow-statistics.ts'
+import { mapFlowStatistics,periodDates,addDays,currentPeriod,flowPeriodLabel,shiftFlowPeriod } from '../src/lib/flow-statistics.ts'
 import { reportModel } from '../src/lib/flow-report.ts'
 
 const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`
@@ -39,6 +39,28 @@ function cells(csv){
   }
   return result
 }
+test('current export period resolves immediately, preferring the native Flow date over the display timezone',async()=>{
+  for(const [now,nativeToday,displayDate] of [
+    ['2026-10-19T03:00Z','2026-10-18','2026-10-19'], // Sunday/Monday differ after timezone travel.
+    ['2026-11-01T04:30Z','2026-10-31','2026-11-01'], // Native day still belongs to the previous month.
+  ])for(const kind of ['day','week','month']){
+    const native=currentPeriod(kind,Date.parse(now),'Europe/Oslo',nativeToday)
+    assert.equal(native.anchor,nativeToday)
+    assert.notEqual(flowPeriodLabel(native),'Velg en gyldig visningstidssone')
+    for(const direction of [-1,1])assert.notDeepEqual(shiftFlowPeriod(native,direction),native)
+    assert.equal(currentPeriod(kind,Date.parse(now),'Europe/Oslo').anchor,displayDate)
+    assert.equal(currentPeriod(kind,Date.parse(now),null,nativeToday).anchor,nativeToday)
+  }
+  for(const kind of ['day','week','month']){
+    assert.equal(currentPeriod(kind,Date.parse('2026-10-19T03:59:59Z'),'UTC',null).anchor,'2026-10-18')
+    assert.equal(currentPeriod(kind,Date.parse('2026-10-19T04:00:00Z'),'UTC',null).anchor,'2026-10-19')
+    assert.equal(currentPeriod(kind,Date.parse(server),'invalid-zone',null).anchor,null)
+  }
+  assert.deepEqual(currentPeriod('total',Date.parse(server),'UTC',date),{kind:'total',anchor:null})
+  const ui=await readFile(new URL('../src/components/FlowExport.tsx',import.meta.url),'utf8')
+  assert.match(ui,/select\(currentPeriod\(period\.kind, history\.now\(\), history\.timezone, history\.statistics\?\.task_date\)\)/)
+})
+
 test('CSV headers/order/BOM/CRLF and Unicode/quotes/commas/newlines preserve data',()=>{
   assert.equal(csvHeader.charCodeAt(0),0xFEFF);assert.deepEqual(cells(csvHeader.slice(1))[0],[...csvHeaders])
   const r=row(1,{area_id:id(800),area_name:'Nettverk, sikkerhet 🧭',area_code:'ØV',task_id:id(801),task_title:'React, "hooks" og æøå 🚀',task_status:'completed',task_deadline:'2026-10-20T10:00:00Z',description:'Linje 1\nLinje "2", æøå'})
