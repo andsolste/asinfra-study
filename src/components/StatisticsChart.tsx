@@ -1,6 +1,6 @@
 import { useId } from 'react'
-import { axisTime, chartScale, dayAxisLabel, subjectAppearance } from '../lib/statistics'
-import type { StatisticsPeriod, StatisticsSummary, SubjectWork } from '../lib/statistics'
+import { axisTime, chartScale, logicalDayAxisLabel as dayAxisLabel, areaAppearance as subjectAppearance } from '../lib/flow-statistics'
+import type { FlowPeriod as StatisticsPeriod, FlowStatistics as StatisticsSummary, AreaWork as SubjectWork } from '../lib/flow-statistics'
 import { formatDuration } from '../lib/study-sessions'
 
 const subjectLabel = (subject: SubjectWork) => [subject.code, subject.name].filter(Boolean).join(' · ')
@@ -19,7 +19,7 @@ function SubjectPatterns({ prefix, subjects }: { prefix: string; subjects: Subje
   })}</defs>
 }
 
-export function StatisticsLegend({ subjects }: { subjects: SubjectWork[] }) {
+export function StatisticsLegend({ subjects, onArea }: { subjects: SubjectWork[]; onArea?: (id: string | null) => void }) {
   const prefix = useId()
   return <ul className="statistics-legend" aria-label="Arbeidstid per område">{subjects.map(subject =>
     <li key={key(subject)}>
@@ -27,21 +27,22 @@ export function StatisticsLegend({ subjects }: { subjects: SubjectWork[] }) {
         <SubjectPatterns prefix={prefix} subjects={[subject]} />
         <rect width="20" height="20" rx="3" fill={paint(prefix, subject)} />
       </svg>
-      <span>{subject.code && <span className="subject-code">{subject.code} · </span>}{subject.name}</span>
+      {onArea ? <button type="button" className="statistics-area-link" onClick={() => onArea(subject.id)}>{subject.code && <span className="subject-code">{subject.code} · </span>}{subject.name}</button>
+        : <span>{subject.code && <span className="subject-code">{subject.code} · </span>}{subject.name}</span>}
       <strong>{formatDuration(subject.work)}</strong>
     </li>)}</ul>
 }
 
 export default function StatisticsChart({ summary, period }: { summary: StatisticsSummary; period: StatisticsPeriod }) {
   const prefix = useId()
-  const day = period.kind === 'day'
+  const day = period.kind === 'day' || period.kind === 'total'
   const month = period.kind === 'month'
   const width = month ? 1000 : day ? 620 : 400
   const height = day ? 50 : 260
   const left = month ? 62 : 54, right = 12, top = 12, bottom = 222
   const plotWidth = width - left - right
   const scale = chartScale(Math.max(...summary.days.map(value => value.total), 0))
-  const slot = plotWidth / summary.days.length
+  const slot = plotWidth / Math.max(1, summary.days.length)
   const barWidth = slot * .65
   let dayX = 0
   return <figure className="statistics-figure">
@@ -52,10 +53,10 @@ export default function StatisticsChart({ summary, period }: { summary: Statisti
       <svg className={month ? 'statistics-svg is-month' : 'statistics-svg'} viewBox={`0 0 ${width} ${height}`}
         role="img" aria-labelledby={`${prefix}-title ${prefix}-desc`}>
         <title id={`${prefix}-title`}>{day ? 'Arbeidstid fordelt på områder' : 'Daglig arbeidstid fordelt på områder'}</title>
-        <desc id={`${prefix}-desc`}>Kun avsluttede arbeidsperioder, uten pauser. Områder, datoer og eksakt tid finnes i områdelisten og under Vis tallgrunnlag.</desc>
-        <SubjectPatterns prefix={prefix} subjects={summary.subjects} />
+        <desc id={`${prefix}-desc`}>Faktisk arbeidstid ved siste serverkontroll, uten pauser. Datoer er logiske Flow-datoer. Områder og eksakt tid finnes i områdelisten og under Vis tallgrunnlag.</desc>
+        <SubjectPatterns prefix={prefix} subjects={summary.areas} />
         <g aria-hidden="true">
-          {day ? summary.subjects.map(subject => {
+          {day ? summary.areas.map(subject => {
             const bar = summary.total ? subject.work / summary.total * width : 0
             const x = dayX; dayX += bar
             return <rect key={key(subject)} x={x} y="10" width={bar} height="30" fill={paint(prefix, subject)}>
@@ -70,11 +71,11 @@ export default function StatisticsChart({ summary, period }: { summary: Statisti
             {summary.days.map((value, index) => {
               const x = left + slot * index + (slot - barWidth) / 2
               let stacked = 0
-              return <g key={value.from}>
+              return <g key={value.date}>
                 <title>{value.label}: {formatDuration(value.total)}</title>
                 {!value.total && <rect className="statistics-zero" x={x} y={bottom - 3} width={barWidth} height="3" />}
-                {summary.subjects.map(subject => {
-                  const work = value.subjects.find(row => row.id === subject.id)?.work ?? 0
+                {summary.areas.map(subject => {
+                  const work = value.areas.find(row => row.id === subject.id)?.work ?? 0
                   const barHeight = work / scale.max * (bottom - top)
                   const y = bottom - stacked - barHeight; stacked += barHeight
                   return work > 0 && <rect key={key(subject)} x={x} y={y} width={barWidth} height={barHeight} fill={paint(prefix, subject)}>
@@ -97,17 +98,17 @@ export function StatisticsTable({ summary, period }: { summary: StatisticsSummar
   return <details className="statistics-data"><summary>Vis tallgrunnlag</summary>
     <div className="statistics-table-scroll" tabIndex={0} role="region" aria-label="Tallgrunnlag, rullbart ved behov">
       <table>
-        <caption>Arbeidstid i lokal tid · timer:minutter:sekunder</caption>
-        {period.kind === 'day' ? <>
+        <caption>Faktisk arbeidstid · logiske Flow-datoer · timer:minutter:sekunder</caption>
+        {period.kind === 'day' || period.kind === 'total' ? <>
           <thead><tr><th scope="col">Område</th><th scope="col">Arbeidstid</th></tr></thead>
-          <tbody>{summary.subjects.map(subject => <tr key={key(subject)}><th scope="row">{subjectLabel(subject)}</th><td>{formatDuration(subject.work)}</td></tr>)}</tbody>
+          <tbody>{summary.areas.map(subject => <tr key={key(subject)}><th scope="row">{subjectLabel(subject)}</th><td>{formatDuration(subject.work)}</td></tr>)}</tbody>
           <tfoot><tr><th scope="row">Totalt</th><td>{formatDuration(summary.total)}</td></tr></tfoot>
         </> : <>
-          <thead><tr><th scope="col">Dato</th>{summary.subjects.map(subject => <th key={key(subject)} scope="col">{subjectLabel(subject)}</th>)}<th scope="col">Totalt</th></tr></thead>
-          <tbody>{summary.days.map(value => <tr key={value.from}><th scope="row">{value.label}</th>
-            {summary.subjects.map(subject => <td key={key(subject)}>{formatDuration(value.subjects.find(row => row.id === subject.id)?.work ?? 0)}</td>)}
+          <thead><tr><th scope="col">Dato</th>{summary.areas.map(subject => <th key={key(subject)} scope="col">{subjectLabel(subject)}</th>)}<th scope="col">Totalt</th></tr></thead>
+          <tbody>{summary.days.map(value => <tr key={value.date}><th scope="row">{value.label}</th>
+            {summary.areas.map(subject => <td key={key(subject)}>{formatDuration(value.areas.find(row => row.id === subject.id)?.work ?? 0)}</td>)}
             <td>{formatDuration(value.total)}</td></tr>)}</tbody>
-          <tfoot><tr><th scope="row">Totalt</th>{summary.subjects.map(subject => <td key={key(subject)}>{formatDuration(subject.work)}</td>)}<td>{formatDuration(summary.total)}</td></tr></tfoot>
+          <tfoot><tr><th scope="row">Totalt</th>{summary.areas.map(subject => <td key={key(subject)}>{formatDuration(subject.work)}</td>)}<td>{formatDuration(summary.total)}</td></tr></tfoot>
         </>}
       </table>
     </div>

@@ -231,7 +231,7 @@ test('missing browser zone is never guessed; stored snapshot zone stays frozen',
   assert.ok(browserTimezone() === null || typeof browserTimezone() === 'string')
 })
 
-test('native UI uses accessible controls/panels, recovery events and no Stop; legacy views stay labelled', async () => {
+test('native UI uses accessible controls/panels, recovery events and no Stop; history is unified', async () => {
   const source = file => readFile(new URL('../' + file, import.meta.url), 'utf8')
   const timer = await source('src/components/FlowTimer.tsx'), hook = await source('src/hooks/useFlowWorkDay.ts')
   assert.match(timer, /Arbeid i dag/); assert.match(timer, /<button[^>]*type="button" className="flow-total"/)
@@ -241,7 +241,9 @@ test('native UI uses accessible controls/panels, recovery events and no Stop; le
   assert.match(hook, /setTimeout\(\(\) => void store.refresh\(\)/)
   const account = await source('src/components/Account.tsx')
   assert.match(account, /<FlowTimer/); assert.doesNotMatch(account, /<StudyTimer/)
-  assert.match(account, /tidligere registreringer/)
+  assert.match(account, /<FlowHistory/); assert.match(account, /<FlowStatistics/)
+  assert.doesNotMatch(account, /Denne visningen viser tidligere registreringer/)
+  assert.match(await source('src/components/FlowHistory.tsx'), /Eldre registrering/)
   assert.match(await source('src/components/DetailPanel.tsx'), /returnFocus\.focus/)
   assert.match(await source('src/components/DetailPanel.tsx'), /fallbackFocus\?\.focus/)
 })

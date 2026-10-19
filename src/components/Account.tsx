@@ -4,11 +4,11 @@ import { supabase } from '../lib/supabase'
 import Subjects from './Subjects'
 import AppHeader from './AppHeader'
 import FlowTimer from './FlowTimer'
-import StudyHistory from './StudyHistory'
-import StudyStatistics from './StudyStatistics'
+import FlowHistory from './FlowHistory'
+import FlowStatistics from './FlowStatistics'
 import DetailPanel from './DetailPanel'
 import { useSubjects } from '../hooks/useSubjects'
-import { useStudyHistory } from '../hooks/useStudyHistory'
+import { useFlowHistory } from '../hooks/useFlowHistory'
 import { useFlowWorkDay } from '../hooks/useFlowWorkDay'
 import TaskQueue from './TaskQueue'
 import Tasks from './Tasks'
@@ -18,7 +18,7 @@ type Panel = keyof typeof detailPanels
 
 export default function Account({ session }: { session: Session }) {
   const subjects = useSubjects()
-  const history = useStudyHistory()
+  const history = useFlowHistory()
   const flow = useFlowWorkDay()
   const [taskId, setTaskId] = useState<string | null>(null)
   const [signingOut, setSigningOut] = useState(false)
@@ -32,6 +32,9 @@ export default function Account({ session }: { session: Session }) {
   useEffect(() => {
     if (subjects.status === 'ready') void history.reload()
   }, [subjects.subjects, subjects.status, history.reload])
+  useEffect(() => {
+    if (panel === 'statistics' || panel === 'history') void history.reload()
+  }, [panel, flow.data, history.reload])
 
   async function signOut() {
     if (!supabase) return
@@ -65,9 +68,8 @@ export default function Account({ session }: { session: Session }) {
         returnFocus={panelOpener.current} fallbackFocus={panelFallback.current} busy={panelBusy}
         hasForms={panel === 'history' || panel === 'subjects' || panel === 'tasks'} onClose={() => setPanel(null)}>
         {panel === 'tasks' && <Tasks data={flow} initialId={taskId} />}
-        {(panel === 'statistics' || panel === 'history') && <p className="legacy-panel-note">Denne visningen viser tidligere registreringer fra den gamle tidtakeren. Native Flow-arbeid vises i dagsdetaljene og kobles til historikk og statistikk i en senere fase.</p>}
-        {panel === 'statistics' && <StudyStatistics data={history} />}
-        {panel === 'history' && <StudyHistory data={history} subjects={subjects} />}
+        {panel === 'statistics' && <FlowStatistics data={history} catalog={flow.catalog} />}
+        {panel === 'history' && <FlowHistory data={history} subjects={subjects} catalog={flow.catalog} />}
         {panel === 'subjects' && <Subjects data={subjects} />}
       </DetailPanel>
     </>

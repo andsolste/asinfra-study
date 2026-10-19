@@ -155,7 +155,6 @@ p.timer-status.is-loading { color: var(--blue); }
   .task-actions { width: 100%; }
   .task-actions button { flex: 1; }
 }
-.legacy-panel-note { padding-left: var(--space-4); border-left: 2px solid var(--blue); color: var(--text-secondary); font-size: .875rem; }
 .timer-saved { margin-block: var(--space-6); padding-left: var(--space-4); border-left: 2px solid var(--success); }
 .timer-saved p { color: var(--success); font-weight: 600; }
 .timer-saved dl { margin: 0; font-size: .85rem; }
@@ -163,6 +162,22 @@ p.timer-status.is-loading { color: var(--blue); }
 .timer-saved dd { margin: 0; font-variant-numeric: tabular-nums; }
 
 .statistics-kinds { display: flex; padding: .25rem; gap: .25rem; border: 1px solid var(--border); border-radius: var(--control-radius); }
+.statistics-kinds { flex-wrap: wrap; }
+.statistics-area-link { min-width: 0; min-height: 44px; padding: .25rem 0; border: 0; background: transparent; color: var(--blue); text-align: left; overflow-wrap: anywhere; font: inherit; }
+.statistics-area-link:hover:not(:disabled) { background: transparent; text-decoration: underline; }
+.statistics-policy { margin-block: var(--space-4); font-size: .85rem; color: var(--text-muted); }
+.statistics-policy summary { min-height: 44px; cursor: pointer; padding-block: .7rem; }
+.statistics-zone { max-width: 36rem; }
+.flow-area-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-4); padding-block: var(--space-4); border-block: 1px solid var(--border); }
+.flow-area-metrics dt { color: var(--text-muted); font-size: .85rem; }
+.flow-area-metrics dd { margin: .4rem 0 0; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.area-contributions { list-style: none; padding: 0; }
+.area-contributions li { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: var(--space-4); border-bottom: 1px solid var(--border); padding-block: var(--space-4); overflow-wrap: anywhere; }
+.area-contributions strong { font-variant-numeric: tabular-nums; }
+.flow-history-timeline > li { border-left: 2px solid var(--border); padding: .5rem 0 .5rem 1rem; margin: 0 0 .5rem; }
+.flow-history-timeline .is-pause { border-left-style: dashed; color: var(--text-muted); }
+.flow-history-timeline p { margin: .25rem 0; overflow-wrap: anywhere; }
+.flow-history-timeline .history-form { max-width: 36rem; }
 .statistics-kinds button { padding-inline: .9rem; border-color: transparent; }
 .statistics-kinds [aria-pressed="true"] { background: var(--accent); color: white; }
 .statistics-kinds button[aria-pressed="true"]:hover:not(:disabled) { background: var(--accent-hover); color: white; }

@@ -34,8 +34,8 @@ klippet til cutoff. Dagsdetaljer viser arbeid, start, klokketid, pause og segmen
 Ingen vanlig Stopp-knapp finnes: Pause er nok.
 Ved cutoff kan sist avsluttede dag i denne fanen fortsatt sees i dagsdetaljer,
 med serverbekreftet ended_at; hovedtiden er likevel 00:00:00 uten aktiv dag.
-Denne lokale detaljreferansen lagres ikke over logout/fresh reload. Full tidligere
-native historikk er #13, ikke et nytt historikksystem her.
+Denne lokale detaljreferansen lagres ikke over logout/fresh reload. Avsluttede
+native dager finnes også i den samlede Flow-historikken beskrevet nedenfor.
 
 `flow_work_state` gir recovery og start-boundary-token. `flow_work_day_start`
 oppretter dag + første segment + legacy-cutover atomisk. `flow_work_activity`
@@ -59,22 +59,20 @@ databaseguards blokkerer deretter gamle faners legacy start/resume/reopen og
 direkte writes. Før første native start virker gammel timer fortsatt. Ugyldig
 aktivitet ruller tilbake hele cutoveren; historisk arbeid kopieres ikke.
 
-Historikk/edit/delete og Dag/Uke/Måned/SVG er tydelig merkede **legacy-visninger**,
-uten native arbeid før #13. Gamle sessions får ingen oppdiktet historisk tidssone;
-kalendergrenser ved midnatt beholdes. Legacy-korreksjoner må slutte senest ved
+Historikk/statistikk leser nå begge kilder uten å kopiere arbeid. Eldre sessions
+får ingen oppdiktet historisk tidssone. Legacy-korreksjoner må slutte senest ved
 cutover, ikke flyttes inn i native tid. Alle gamle RPC-er beholdes. `StudyTimer`
 beholdes som legacy referanse/testdekning, men monteres ikke i dashboardet.
 
 Se [canonical backend-dokumentasjon](https://github.com/andsolste/asinfra/blob/main/supabase/README.md).
-Migrations kopieres aldri hit. #13 kombinerer historikk/statistikk; #7 bygger
-eksport; #14 flytter domenet. Ingen hosted-, DNS- eller Auth-endringer utføres her.
+Migrations kopieres aldri hit. #7 bygger eksport; #14 flytter domenet.
+Ingen hosted-, DNS- eller Auth-endringer utføres her.
 
 ### Flow v1, fase #12: oppgaver, frister og arbeidskø
 
-**Backendmigrasjonen `20261013120000_add_flow_tasks.sql` i canonical backend
-må reviewes og deployes før denne frontenden merges/deployes.** Den er ikke
-deployet av denne PR-en. Oppgaver bruker `flow_task_save`, `flow_task_status`
-og `flow_task_time`, med eksisterende RLS og native segmenter.
+Oppgavemigrasjonen `20261013120000_add_flow_tasks.sql` er deployet i canonical
+backend. Oppgaver bruker `flow_task_save` og `flow_task_status`, med eksisterende
+RLS og native segmenter. Den eldre `flow_task_time`-RPC-en beholdes kompatibel.
 
 `TaskQueue`, `Tasks` og `FlowTimer` deler samme store, katalog, serverklokke og
 recovery via `Account`. `flow-activity.ts` bygger én felles start/bytte-kommando;
@@ -104,7 +102,57 @@ hindrer Start, men oppgaven kan redigeres/fullføres/flyttes til aktivt område 
 Detaljer viser nåværende periode og dagens sum fra native snapshot. Totalen
 hentes med en eierbegrenset aggregasjons-RPC og viser tidspunkt for siste kontroll;
 Oppdater total henter ny sum. Pause og legacy beskrivelser teller aldri som task-tid.
-Full native Dag/Uke/Måned-historikk/statistikk hører fortsatt til #13.
+Task-total og dagens sum bruker samme leselag som øvrig Flow-statistikk.
+
+### Flow v1, fase #13: samlet historikk og statistikk
+
+**Ny avhengighet: `20261019090000_add_flow_history_statistics.sql` i canonical
+backend må reviewes og deployes før denne frontenden merges/deployes.** Denne
+implementasjonen deployer ikke hosted migrations og lukker ikke #13.
+
+`Account` deler én `useFlowHistory` / `flow-history-store.ts` mellom historikk og
+statistikk. Dette er et separat leselag, ikke en ekstra timer-/task-store.
+`flow-history.ts` og `flow-statistics.ts` validerer RPC-svar. Historikk, valgt
+periode og områdedetaljer har uavhengige, avbrytbare forespørsler; sene svar kan
+ikke erstatte nyere valg. Åpning av panel, endring av timer/oppgaver/områder,
+korreksjon og manuell oppdatering henter berørte tall på nytt. Ingen polling
+hvert sekund: åpne segmenter telles ved oppgitt serverkontroll, ikke som en
+ekstra live-timer i diagrammet.
+
+- `flow_history`: én global keyset-markør over native dager og avsluttede eldre
+  registreringer, 25 om gangen. Identitet er `source:id`; originalt timestamp med
+  mikrosekunder, source og UUID sendes uendret tilbake som neste markør.
+- `flow_statistics`: Dag/Uke/Måned/**Totalt** aggregeres på serveren. Totalt laster
+  ikke ned all råhistorikk og har ingen dagsserie eller kunstig datointervall.
+- `flow_area_statistics`: I dag/Denne uken/Denne måneden/Totalt og oppgavebidrag
+  for valgt område, også Annet. Legacy vises som «Uten oppgave / eldre registrering».
+  Oppgavebeskrivelser matches aldri til legacy arbeid.
+
+Native arbeid grupperes på **lagret `logical_date`**, tidssone og 04:00-grenser,
+selv etter tidssonereise. Uke er mandag–søndag, måned følger kalenderen. Gjeldende
+periode og oppgavens «I dag» bruker den lagrede nåværende dagen når den finnes.
+Legacy mangler historisk tidssone: visningen har et eksplisitt IANA-valg (browserens
+sone i utgangspunktet), med 04:00 → neste 04:00 og splitting av grensekryssende
+segmenter. Dette er en visningspolicy, ikke historiske metadata eller backfill.
+Ugyldig/manglende sone gir tydelig varsel; native data og tidssoneuavhengig Totalt
+beholdes. Ingen norsk standardsone gjettes. PostgreSQL beregner hver kalendergrense
+separat, også 23/25-timersdager. Frontend flytter rene datoer, ikke 24-timersblokker.
+
+Begge kilder summerer faktiske segmenter én gang, uten pauser/session-envelope.
+Åpne segmenter klippes til samme serverklokke og lagret cutoff. Områder bruker
+felles stabile UUID-er og dagens metadata; historisk tilknytning kommer fra
+segmentet, aldri oppgavens nåværende område. `NULL` er nøytralt Annet.
+
+Native tidslinje viser arbeidsperioder, direkte bytter, pauser mellom arbeid og
+siste pause frem til avslutning/cutoff. Den finner ikke på en pause før første
+aktivitet. Dagens aktive dag ligger fortsatt ved timeren. Native korreksjon er
+bevisst begrenset til **område/oppgave på avsluttede perioder i en avsluttet dag**
+via `flow_history_attribute`, med forventet gammel tilknytning. Dagidentitet,
+frosne grenser og tidsstempler kan ikke endres; native sletting tilbys ikke.
+Eldre økter beholder full editor og bekreftet sletting; den nye editoren bruker
+`flow_history_edit_legacy` som atomisk avviser overlapp med andre registreringer.
+Bekreftede og usikre writes etterfølges av ny lesing av historikk og statistikk;
+ingen optimistisk sletting/suksess. Feilet recovery sperrer blind gjentakelse.
 
 ## Lokal utvikling
 
@@ -145,22 +193,16 @@ npm run preview
 Build trenger de to browserverdiene ovenfor. Vite bruker `base: '/'` og lager
 `dist/` med root-baserte `/assets/`. Preview åpnes normalt på **http://localhost:4173/**.
 
-## Beholdt Auth, organisering og legacy historikk/statistikk
+## Beholdt Auth, organisering og presentasjon
 
 - **Auth:** e-post/passord, registrering med eventuell e-postbekreftelse, lagret
   innlogging etter reload og logout. Kontoer og eierskap håndteres av Supabase.
 - **Områder:** egne områder med valgfri kode kan opprettes, redigeres, arkiveres og aktiveres
   igjen. Nye økter bruker aktive områder; historiske økter kan bruke arkiverte områder.
-- **Historikk:** ferdige økter hentes 25 om gangen med «Vis flere». Område, beskrivelse,
-  øktgrenser og arbeidsperioder kan korrigeres; sletting krever bekreftelse.
-  Bekreftede og usikre writes henter data på nytt, uten optimistisk sletting.
-  Legacy-cutover og områdeendringer henter tidligere historikk/statistikk på nytt.
-- **Statistikk:** dag, uke og måned i detaljpanelet, med periodevalg, total,
-  mest aktive område og (for uke/måned) mest aktive dag. Browserens lokale kalender
-  bestemmer grensene: midnatt, mandag og den første i måneden. Kalenderaritmetikk
-  håndterer DST; en dag/uke er ikke alltid 24/168 timer. Alle sider i valgt periode
-  hentes separat fra historikkens 25-raders paginering. Kun lukkede arbeidssegmenter
-  telles, klippet til hver lokale dags `[start, slutt)`. Økter uten segmenter gir 0.
+- **Historikk:** native dager og eldre økter deler én kronologisk liste med «Vis flere».
+  Bare eldre registreringer har full tidseditor/sletting; native har begrenset tilknytning.
+- **Statistikk:** Dag/Uke/Måned/Totalt i detaljpanelet, med total, mest aktive område
+  og (for uke/måned) mest aktive dag. Områdenavn i listen åpner områdedetaljer.
   Ved bytte mellom dag/uke/måned brukes i dag for en gjeldende periode, ellers dens første dag.
 
 Diagrammene er små SVG-komponenter uten chart-bibliotek: dag viser områdefordeling,
@@ -171,8 +213,8 @@ fargekollisjoner, og «Annet» er nøytral. Områdelisten og «Vis tallgrunnlag�
 tid som `HH:MM:SS`, uten krav om hover eller fargesyn. Beregningen beholder
 millisekundene frem til visning. Like travle dager avgjøres med tidligste dato.
 
-Historikk bruker `study_session_history`, `study_session_history_edit` og
-`study_session_history_delete`. Den bevarte legacy timerkoden bruker
+Legacy-sletting bruker fortsatt `study_session_history_delete`. De tidligere
+read/edit-RPC-ene beholdes for gamle klienter. Den bevarte legacy timerkoden bruker
 `study_session_transition` og `study_session_snapshot`, ikke den nye hovedtimeren.
 Responsene valideres i frontend; RLS, constraints og
 RPC-er i canonical backend er sikkerhetsgrensen og begrenser data til `auth.uid()`.
@@ -208,12 +250,15 @@ Frontendtestene dekker config/Auth-retur, SDK-kall, mapping, områdehandlinger,
 timer/recovery/retry, paginering, edit/delete, usikre writes og segmenttid.
 Dag-/uke-/månedsgrenser, daglig segmentfordeling, skuddår, tidsomstilling,
 områdefarger, hele intervallets paginering, raske periodebytter og inputpresisjon
-testes i flere tidssoner. Rene kalender-/aggregeringshjelpere ligger i
-`src/lib/statistics.ts`; `history-store.ts` håndterer separate avbrytbare lesinger.
+testes i flere tidssoner. Den aktive leseflyten ligger i `flow-history.ts`,
+`flow-statistics.ts` og `flow-history-store.ts`. `statistics.ts` beholder felles
+SVG-skala/farger/teksturer og gamle kalenderhjelpere for kompatibilitetstester;
+legacy midnattstester er ikke kontrakten for Flow. Nye tester dekker 04:00-policy,
+rå cursor-presisjon, begge kilder, nullable områder, Totalt og stale-/feil-recovery.
 SDK/nettverk simuleres: dette verifiserer ikke ekte hosted Auth eller RLS.
 Database-/RLS-testene eies av [canonical backend](https://github.com/andsolste/asinfra/tree/main/supabase/tests).
 
-Eksport, mål, streaks og flere statistikkperioder enn dag/uke/måned er utenfor
+Eksport (#7), domeneovergang (#14), mål og streaks er utenfor
 dagens funksjonalitet. Større forbedringer håndteres separat.
 
 ## Produksjonssjekkliste etter merge/deploy
@@ -227,7 +272,7 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 4. Opprett/rediger/arkiver et testområde og aktiver det igjen.
 5. Åpne uten aktiv Flow-dag: 00:00:00, ingen ny rad før aktivitet velges. Åpne/lukk picker uten å starte.
 6. Velg Annet: første aktivitet starter dagen. Kontroller eventuell gammel økts cutover i legacy historikk.
-7. Velg dag/uke/måned og forrige/neste/gjeldende periode; kontroller diagram,
+7. Velg dag/uke/måned/totalt og forrige/neste/gjeldende periode; kontroller diagram,
    total, områdeliste og tallgrunnlag, også segmenter over midnatt og periodegrenser.
    Test DST og intern rulling i månedsdiagrammet på mobil.
 8. Rediger beskrivelse/område og en arbeidsperiode. Uendrede tidspunkter beholder
@@ -245,9 +290,21 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 17. Bruk eksisterende og nyopprettet område; arkiver siste aktivitet og trykk Fortsett: gyldig nytt valg kreves. Historiske segmenter består.
 18. Kontroller cutoff, sleep/reload/focus/reconnect: dagen lukkes ved lagret 04:00, og ny aktivitet starter ikke automatisk. Ny dag bruker korrekt zone/DST.
 
-Deployrekkefølge for #12: review backend → merge backend → kontroller project-ref
+19. Kontroller blandet historikk over flere sider, direkte bytter uten pausegap,
+    siste pause og arbeid etter midnatt på riktig lagret Flow-dato.
+20. Åpne område og Annet: kontroller fire summer, oppgaver og eldre arbeid uten
+    oppgave. Flyttet/fullført oppgave skal beholde segmentets historiske område.
+21. Korriger native tilknytning; tidspunkter/dag må være uendret. Test eldre edit
+    med overlapp, avvisning, og mistet svar etter lagring; alle lesinger må oppdateres.
+22. Bytt displayzone, også ugyldig/manglende; native dato skal ikke flyttes.
+    Test 03:59:59/04:00, DST, uke-/måned-/årsskifte, tom periode og Totalt uten sone.
+23. Mens annen fane bytter/pause/fullfører: les statistikk og kontroller at ingen
+    halv transition telles dobbelt. Test dette med ekte JWT/Data API og flere DB-
+    forbindelser i lokal/test-Supabase; WASM-/mocktestene beviser ikke nettverkslaget.
+
+Deployrekkefølge for #13: review backend → merge backend → kontroller project-ref
 og `supabase migration list` → `db push --dry-run` → godkjent `db push` → kontroller
-eksisterende timer og task-RLS → merge frontend → smoke-test punktene over samt
+eksisterende timer, tasks og RLS med gammel frontend → merge frontend → smoke-test punktene over samt
 opprett/rediger/frister, start/bytte fra kø, fullføring mens running, gjenåpning,
 områdeflytting etter pause, arkivert område, task-tid og refresh/recovery i to faner.
 Ingen hosted migration eller merge utføres som del av implementasjonen.
