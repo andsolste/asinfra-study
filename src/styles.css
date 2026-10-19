@@ -56,7 +56,7 @@ h2:target { color: var(--purple-light); }
 .timer-section { border-top: 2px solid var(--purple); padding: clamp(1rem, 4vw, 2.5rem); }
 .timer-section h2 { font-size: 1.5rem; }
 .timer-section > form { max-width: 36rem; margin-inline: auto; }
-.detail-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
+.detail-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
 .detail-actions button { min-height: 48px; }
 
 body:has(.detail-panel[open]) { overflow: hidden; }
@@ -255,6 +255,49 @@ p.timer-status.is-loading { color: var(--blue); }
 .archived-subjects .subject-heading h4 { color: var(--text-secondary); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+.export-privacy { color: var(--text-muted); font-size: .85rem; max-width: 56rem; }
+.export-options { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,20rem),1fr)); gap: var(--space-6); margin-block: var(--space-6); }
+.export-options section { border-top: 1px solid var(--border); padding-top: var(--space-4); }
+.export-options h3 { margin: 0; }
+.export-options p { color: var(--text-secondary); font-size: .9rem; }
+.report-preview { margin-top: var(--space-8); border-top: 1px solid var(--border); padding-top: var(--space-6); }
+.flow-report { min-width: 0; padding-top: var(--space-6); overflow-wrap: anywhere; }
+.report-heading { border-bottom: 1px solid var(--border); padding-bottom: var(--space-4); }
+.report-period { font-size: 1.1rem; }
+.report-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap: var(--space-4); margin-block: var(--space-6); }
+.report-summary dt { color: var(--text-muted); font-size: .85rem; }
+.report-summary dd { margin: .5rem 0 0; font-variant-numeric: tabular-nums; }
+.report-summary .report-total { font-size: 2rem; font-weight: 600; }
+.flow-report section { margin-top: var(--space-6); }
+.report-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .85rem; }
+.report-table th, .report-table td { padding: .6rem .25rem; border-bottom: 1px solid var(--border); vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.report-table th { font-weight: 500; }
+.report-table th:last-child, .report-table td:last-child { width: 7rem; text-align: right; font-variant-numeric: tabular-nums; }
+.report-table.report-contributions th:last-child, .report-table.report-contributions td:last-child { width: 6rem; }
+.report-notes { border-top: 1px solid var(--border); margin-top: var(--space-6); padding-top: var(--space-4); color: var(--text-muted); font-size: .8rem; }
+.flow-print-root { display: none; }
+@media print {
+  @page { size: auto; margin: 15mm; }
+  :root { color-scheme: light; background: white; color: #0F172A; }
+  body, body:has(.detail-panel[open]) { min-height: 0; overflow: visible; background: white; }
+  body:has(.flow-print-root) > * { display: none !important; }
+  body > .flow-print-root { display: block !important; }
+  dialog, dialog::backdrop { display: none !important; }
+  .flow-print-root { --text-primary: #0F172A; --text-secondary: #334155; --text-muted: #475569; --blue: #1E40AF; --border: #CBD5E1; color: #0F172A; background: white; font-size: 10pt; }
+  .flow-report { padding: 0; }
+  .flow-report h2 { font-size: 20pt; }
+  .flow-report h3 { break-after: avoid; }
+  .report-heading, .report-summary, .statistics-figure, .statistics-legend li, .report-table tr { break-inside: avoid; }
+  .report-table thead { display: table-header-group; }
+  .report-table tfoot { display: table-row-group; }
+  .report-table { font-size: 9pt; }
+  .flow-report .statistics-chart-scroll { overflow: visible; padding: 0; }
+  .flow-report .statistics-svg.is-month { min-width: 0; width: 100%; max-height: none; }
+  .flow-report .statistics-figure > .timer-meta { display: none; }
+  .flow-report .statistics-swatch, .flow-report .statistics-svg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .flow-print-root button { display: none !important; }
+}
 
 @media (min-width: 640px) {
   .history-times, .subject-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

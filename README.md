@@ -65,7 +65,7 @@ cutover, ikke flyttes inn i native tid. Alle gamle RPC-er beholdes. `StudyTimer`
 beholdes som legacy referanse/testdekning, men monteres ikke i dashboardet.
 
 Se [canonical backend-dokumentasjon](https://github.com/andsolste/asinfra/blob/main/supabase/README.md).
-Migrations kopieres aldri hit. #7 bygger eksport; #14 flytter domenet.
+Migrations kopieres aldri hit. Eksport beskrives nedenfor; #14 flytter domenet.
 Ingen hosted-, DNS- eller Auth-endringer utføres her.
 
 ### Flow v1, fase #12: oppgaver, frister og arbeidskø
@@ -106,9 +106,8 @@ Task-total og dagens sum bruker samme leselag som øvrig Flow-statistikk.
 
 ### Flow v1, fase #13: samlet historikk og statistikk
 
-**Ny avhengighet: `20261019090000_add_flow_history_statistics.sql` i canonical
-backend må reviewes og deployes før denne frontenden merges/deployes.** Denne
-implementasjonen deployer ikke hosted migrations og lukker ikke #13.
+`20261019090000_add_flow_history_statistics.sql` og #13-frontenden er deployet.
+Eksport er en separat, additiv avhengighet beskrevet nedenfor.
 
 `Account` deler én `useFlowHistory` / `flow-history-store.ts` mellom historikk og
 statistikk. Dette er et separat leselag, ikke en ekstra timer-/task-store.
@@ -153,6 +152,81 @@ Eldre økter beholder full editor og bekreftet sletting; den nye editoren bruker
 `flow_history_edit_legacy` som atomisk avviser overlapp med andre registreringer.
 Bekreftede og usikre writes etterfølges av ny lesing av historikk og statistikk;
 ingen optimistisk sletting/suksess. Feilet recovery sperrer blind gjentakelse.
+
+### Flow v1, fase #7: lokal CSV og arbeidsrapport
+
+**Før denne frontenden tas i bruk:** review/deploy canonical
+`20261019140000_add_flow_export.sql` i `andsolste/asinfra`. Denne PR-en verken
+merger, deployer hosted schema eller lukker #7. Ingen migration kopieres hit.
+
+`Eksport` ligger mellom Historikk og Organisering. `FlowExport` / `useFlowExport`
+har en liten, separat `flow-export-store.ts`: bare eksplisitte brukerhandlinger
+henter eksportdata. Periodehjelpere og display timezone deles med eksisterende
+Flow; ingen ny kalender-, timer- eller statistikkmotor innføres.
+
+**CSV:** `flow_export_start(kind, date, timezone)` returnerer første 500 rader,
+serverbestemt periode/referansetid, statistikk og neste markør. Deretter kalles
+`flow_export_rows({job, after}, 500)` til markøren er null. Én rad er et positivt
+arbeidsslice innen én logisk dag. Native følger lagret dato/zone/cutoff/område/task;
+legacy deles ved lokal 04:00 i eksplisitt displayzone. Gyldig IANA-zone kreves
+også for Totalt CSV, men den samlede arbeidstiden er fortsatt tidssoneuavhengig.
+
+Backend fryser referansetiden i et 30-minutters manifest. Åpent arbeid klippes
+til dette tidspunktet. En stabil ordinalmarkør er bundet til manifestets digest
+av alle ordnede rader/metadata: historisk korreksjon, sletting eller navneendring
+avbryter med «start på nytt», i stedet for å blande dataversjoner. Normal vekst/
+pause/bytte etter referansetiden endrer ikke de klippede radene. Dette er **ikke**
+en bevart historisk MVCC-snapshot: alle sider kontrolleres mot manifestet på nytt.
+Det prioriterer korrekthet fremfor maksimal hastighet for svært store datasett.
+
+Filen bygges først når alle sider, ordinaler, identiteter og eksakt varighet er
+kontrollert mot startresponsens statistikk. Ingen delvis fil ved feil eller
+avbrudd. Hver lesing har 30 sekunders timeout. Ny jobb, periodeskifte, Lukk og
+logout/unmount avbryter gamle svar. Manifest slettes best-effort ved slutt;
+backend avviser utløpte jobber og rydder egne utløpte ved neste eksportstart.
+CSV lagres bare som lokal Blob, med object URL som revokes etter nedlasting.
+
+#### CSV-kontrakt
+
+Kolonnerekkefølge: **Kilde, Flow-dato, Tidssone, Tidssonegrunnlag, Start, Slutt,
+Arbeidstid, Arbeidstid sekunder, Område, Områdekode, Områdestatus, Oppgave,
+Oppgavestatus, Oppgavefrist, Beskrivelse**.
+
+- UTF-8 med BOM, komma, CRLF og doble anførselstegn rundt tekst; innebygde quotes
+  dobles. Komma, linjeskift, norsk tekst og emoji beholdes. Ved norsk Excel-import
+  velges UTF-8 og komma som delimiter dersom programmet ikke oppdager det selv.
+- Start/slutt/frist er absolutte ISO-8601-tidsstempler med offset, eksportert i UTC.
+  Flow-dato er `YYYY-MM-DD`; separat IANA-zone og grunnlag skiller lagret native
+  zone fra legacy visningspolicy. Navn/status/frist/beskrivelse er **nåværende**
+  tilgjengelige metadata, ikke historiske snapshots. Historisk område følger segmentet.
+- `Annet` for null område, `Uten oppgave` for native uten task og
+  `Uten oppgave / eldre registrering` for legacy. Ingen description→task matching.
+  Arkiverte områder/fullførte tasks beholdes. UUID-er, e-post og Auth-data utelates.
+- Varigheter summeres med heltallsmikrosekunder (`BigInt`). Numeriske sekunder
+  beholder opptil seks desimaler; `HH:MM:SS` er bare visning med hele sekunder.
+  Filnavn: `flow-YYYY-MM-DD.csv`, `flow-2026-10-19_til_2026-10-25.csv`, `flow-YYYY-MM.csv`
+  eller `flow-total.csv`, uten kontoopplysninger. Tom eksport gir bare header.
+- `csvText` nøytraliserer potensielle formler, også etter whitespace/kontrolltegn
+  og fullbreddevarianter av `= + - @`, med **apostrof + tabulator** før original
+  tekst i det quotede tekstfeltet. Numeriske varigheter endres ikke. Prefikset er
+  bevisst synlig ved noen importer. Quoting alene er ikke et vern; senere vilkårlig
+  save/re-import kan fjerne vern og må vurderes separat. Se
+  [OWASP CSV Injection](https://community.owasp.org/attacks/CSV_Injection).
+
+#### Rapport og PDF
+
+`flow_statistics` er eneste kilde til rapporttotaler, områder, daglige summer og
+bidrag. `FlowReport` har egne presentasjonstabeller, men gjenbruker dagens SVG,
+områdefarger og mønstre. Dag/Totalt viser områdefordeling; Uke/Måned viser dager
+og en kompakt dagstabell. Totalt lager ikke en søyle for hver dag i levetiden.
+Generert-tidspunkt kommer fra serveren. Rapporten inneholder ikke e-post/UUID.
+
+Forhåndsvis rapporten og velg **Skriv ut / Lagre som PDF**. En print-only portal
+utenfor modal/app-shell og lys `@media print` skjuler navigation, backdrop og
+kontroller, fjerner månedsdiagrammets scrollbredde og gjentar tabellheadinger.
+Velg A4/Letter i browserens vanlige utskriftsdialog; ingen PDF-/chart-avhengighet.
+Print-preview og Excel/Sheets-import må sluttkontrolleres i vanlig browser før
+produksjon; den innebygde testbrowseren ga ikke tilgang til full utskriftsdialog.
 
 ## Lokal utvikling
 
@@ -258,8 +332,11 @@ rå cursor-presisjon, begge kilder, nullable områder, Totalt og stale-/feil-rec
 SDK/nettverk simuleres: dette verifiserer ikke ekte hosted Auth eller RLS.
 Database-/RLS-testene eies av [canonical backend](https://github.com/andsolste/asinfra/tree/main/supabase/tests).
 
-Eksport (#7), domeneovergang (#14), mål og streaks er utenfor
-dagens funksjonalitet. Større forbedringer håndteres separat.
+Eksporttester dekker CSV, formula-vern, presisjon, paging, feil/avbrudd/retry,
+stale svar og fire rapportperioder. Backend tester over 1100 rader, DST, RLS og
+frosset referansetid separat. Dette er ikke hosted JWT-/flerforbindelsesverifisering.
+Offentlig Flow-oversikt (#19), domeneovergang (#14), deling/cloud upload, mål og
+streaks er utenfor denne implementasjonen.
 
 ## Produksjonssjekkliste etter merge/deploy
 
@@ -302,9 +379,38 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
     halv transition telles dobbelt. Test dette med ekte JWT/Data API og flere DB-
     forbindelser i lokal/test-Supabase; WASM-/mocktestene beviser ikke nettverkslaget.
 
-Deployrekkefølge for #13: review backend → merge backend → kontroller project-ref
-og `supabase migration list` → `db push --dry-run` → godkjent `db push` → kontroller
-eksisterende timer, tasks og RLS med gammel frontend → merge frontend → smoke-test punktene over samt
-opprett/rediger/frister, start/bytte fra kø, fullføring mens running, gjenåpning,
-områdeflytting etter pause, arkivert område, task-tid og refresh/recovery i to faner.
-Ingen hosted migration eller merge utføres som del av implementasjonen.
+### Eksport: 24 punkter før produksjonsgodkjenning
+
+Bruk merkede testdata; store eksporter og nettverksfeil simuleres i lokal/test-
+Supabase, ikke ved å forstyrre reelt arbeid. Kontroller også gamle funksjoner over.
+
+1. Eksport åpner fra detaljhandlingene; Tab/Esc/Lukk fungerer.
+2. Dag CSV: riktige lagrede Flow-datoer og positivt arbeid.
+3. Uke CSV: mandag–søndag, også segment over 04:00-grensen.
+4. Måned CSV: riktig kalender, årsskifte og DST.
+5. Totalt CSV: begge kilder og hele bevart historikk, ikke første 1000 rader.
+6. Importer i Excel og Sheets med UTF-8/komma; farlige formelceller er tekst.
+7. Kontroller norsk tekst, emoji, komma, quotes og linjeskift.
+8. Summer numeriske sekunder mot statistikk ved samme referansetid; ikke summer avrundet klokkevisning.
+9. Annet har forståelig navn, uten konstruert område-ID.
+10. Navngitt/arkivert område og historisk segmenttilknytning er beholdt.
+11. Task-tittel/status/frist er nåværende metadata, også completed; uten task er eksplisitt.
+12. Legacy har beskrivelse og displayzone, men ingen oppdiktet task/historisk zone.
+13. Dag-rapport har total, områder, bidrag og 04:00-note.
+14. Uke-rapport har syv dager, mest aktiv dag og riktige summer.
+15. Måned-rapport har alle datoer og printvennlig dagstabell.
+16. Total-rapport har ingen livslang dagsserie eller e-post/interne ID-er.
+17. Chromium print-preview: A4 portrait/landscape og Letter; bare rapport, ingen backdrop/kontroller.
+18. Lagre PDF; kontroller sideskift, diagram/legend, tabellbredde og lange navn.
+19. 1280/390/320 px: ingen ytre horisontal scrolling; alle handlinger er tilgjengelige.
+20. Tom dag/uke/måned/konto/Totalt: 0-rapport og CSV med bare header.
+21. Over 1000 rader, tre sider: ingen tap/duplikater; åpent arbeid fryses ved eksportstart.
+22. Avbryt, Lukk, logout og ny eksport: sent svar må ikke laste ned gammel fil.
+23. Feil midtveis eller korrigerte data: ingen delvis fil; Prøv igjen starter ny jobb.
+24. Ekte JWT/Data API med konto A/B og flere forbindelser: ingen innsyn i annen brukers jobb/data.
+
+Deployrekkefølge for #7: review backend → merge backend → kontroller project-ref
+og `supabase migration list` → `supabase db push --dry-run` → særskilt godkjent
+`supabase db push` → smoke-test dagens Flow/timer/tasks/historikk/statistikk/RLS
+med gammel frontend → merge frontend → eksportkontrollen over. Ingen hosted
+migration, merge eller lukking av #7 utføres som del av implementasjonen.

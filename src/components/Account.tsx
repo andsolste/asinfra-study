@@ -6,6 +6,7 @@ import AppHeader from './AppHeader'
 import FlowTimer from './FlowTimer'
 import FlowHistory from './FlowHistory'
 import FlowStatistics from './FlowStatistics'
+import FlowExport from './FlowExport'
 import DetailPanel from './DetailPanel'
 import { useSubjects } from '../hooks/useSubjects'
 import { useFlowHistory } from '../hooks/useFlowHistory'
@@ -13,7 +14,7 @@ import { useFlowWorkDay } from '../hooks/useFlowWorkDay'
 import TaskQueue from './TaskQueue'
 import Tasks from './Tasks'
 
-const detailPanels = { tasks: 'Oppgaver', statistics: 'Statistikk', history: 'Historikk', subjects: 'Organisering' } as const
+const detailPanels = { tasks: 'Oppgaver', statistics: 'Statistikk', history: 'Historikk', export: 'Eksport', subjects: 'Organisering' } as const
 type Panel = keyof typeof detailPanels
 
 export default function Account({ session }: { session: Session }) {
@@ -70,6 +71,7 @@ export default function Account({ session }: { session: Session }) {
         {panel === 'tasks' && <Tasks data={flow} initialId={taskId} />}
         {panel === 'statistics' && <FlowStatistics data={history} catalog={flow.catalog} />}
         {panel === 'history' && <FlowHistory data={history} subjects={subjects} catalog={flow.catalog} />}
+        {panel === 'export' && <FlowExport history={history} />}
         {panel === 'subjects' && <Subjects data={subjects} />}
       </DetailPanel>
     </>
