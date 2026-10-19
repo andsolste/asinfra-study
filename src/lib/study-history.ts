@@ -77,7 +77,7 @@ export function prepareHistoryEdit(draft: HistoryDraft, subjects: Subject[]): Hi
   return { subjectId: draft.subjectId || null, description, startedAt, endedAt, segments }
 }
 
-export function createHistoryApi(client: Pick<SupabaseClient, 'rpc'>) {
+export function createHistoryApi(client: Pick<SupabaseClient, 'rpc'>, editRpc: 'study_session_history_edit' | 'flow_history_edit_legacy' = 'study_session_history_edit') {
   const api = {
     async list(query: HistoryQuery, signal: AbortSignal): Promise<HistoryEntry[]> {
       const { interval, limit = 25, offset = 0 } = query
@@ -114,7 +114,7 @@ export function createHistoryApi(client: Pick<SupabaseClient, 'rpc'>) {
     async edit(sessionId: string, input: HistoryEdit, signal: AbortSignal) {
       try {
         signal.throwIfAborted()
-        const { data, error } = await client.rpc('study_session_history_edit', {
+        const { data, error } = await client.rpc(editRpc, {
           p_session_id: sessionId, p_subject_id: input.subjectId, p_description: input.description,
           p_started_at: input.startedAt, p_ended_at: input.endedAt,
           p_segments: input.segments.map(segment => ({ started_at: segment.started_at, ended_at: segment.ended_at })),

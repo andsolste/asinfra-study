@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
 import { supabase } from '../lib/supabase'
-import { createTaskApi, deadlineLabel, taskDayTime, taskQueue } from '../lib/flow-tasks'
-import type { TaskTime } from '../lib/flow-tasks'
+import { deadlineLabel, taskDayTime, taskQueue } from '../lib/flow-tasks'
+import { createStatisticsApi } from '../lib/flow-statistics'
+import type { FlowStatistics } from '../lib/flow-statistics'
 import { formatDuration } from '../lib/study-sessions'
 import { TaskList } from './TaskQueue'
 import TaskForm from './TaskForm'
 import FlowFeedback from './FlowFeedback'
 
 function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData; onEdit: () => void }) {
-  const [total, setTotal] = useState<TaskTime | null>(null)
+  const [total, setTotal] = useState<FlowStatistics | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
   const task = data.catalog.tasks.find(t => t.id === id)
@@ -18,7 +19,7 @@ function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData
     setTotal(null); setError(null)
     const timeout = window.setTimeout(() => controller.abort(), 15000)
     let active = true
-    void createTaskApi(supabase!).time(id, controller.signal).then(value => { if (active) setTotal(value) })
+    void createStatisticsApi(supabase!).statistics({ kind: 'total', anchor: null }, null, controller.signal, id).then(value => { if (active) setTotal(value) })
       .catch(() => { if (active) setError('Kunne ikke hente total oppgavetid.') }).finally(() => clearTimeout(timeout))
     return () => { active = false; clearTimeout(timeout); controller.abort() }
   }, [id, data.data, reload])
@@ -33,8 +34,8 @@ function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData
     {area?.is_archived && task.status === 'active' && <p>Flytt oppgaven til et aktivt område eller fjern området for å starte den.</p>}
     <dl className="flow-day-metrics">
       {data.data?.current?.segments.some(s => s.task_id === id && s.ended_at === null) && <div><dt>Denne arbeidsperioden</dt><dd>{formatDuration(day.current)}</dd></div>}
-      <div><dt>Oppgaven i dag</dt><dd>{formatDuration(day.work)}</dd></div>
-      <div><dt>Oppgaven totalt</dt><dd>{total ? formatDuration(total.work_milliseconds) : error ? 'Utilgjengelig' : 'Henter …'}</dd></div>
+      <div><dt>Oppgaven i dag</dt><dd>{data.data?.current ? formatDuration(day.work) : total ? formatDuration(total.task_today ?? 0) : error ? 'Utilgjengelig' : 'Henter …'}</dd></div>
+      <div><dt>Oppgaven totalt</dt><dd>{total ? formatDuration(total.total) : error ? 'Utilgjengelig' : 'Henter …'}</dd></div>
     </dl>
     {total && <p className="timer-meta">Totalen ble kontrollert {new Date(total.server_time).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. Pauser teller ikke.</p>}
     {error && <p className="auth-error" role="alert">{error}</p>}
