@@ -4,12 +4,14 @@ import test from 'node:test'
 
 const source = path => readFile(new URL('../' + path, import.meta.url), 'utf8')
 
-test('Flow branding keeps its domain and preserves the separate legacy compatibility APIs', async () => {
+test('Flow branding prepares its domain and preserves the separate legacy compatibility APIs', async () => {
   const header = await source('src/components/AppHeader.tsx')
   const html = await source('index.html')
   assert.match(header, /<h1>Flow<\/h1>/)
   assert.match(html, /<title>Flow \| ASInfra<\/title>/)
-  assert.match(await source('README.md'), /https:\/\/study\.asinfra\.no\//)
+  assert.match(html, /rel="canonical" href="https:\/\/flow\.asinfra\.no\/"/)
+  assert.match(html, /property="og:url" content="https:\/\/flow\.asinfra\.no\/"/)
+  assert.match(await source('README.md'), /https:\/\/flow\.asinfra\.no\//)
   assert.match(await source('vite.config.ts'), /base: '\/'/)
   for (const file of ['subjects.ts', 'study-sessions.ts', 'study-history.ts']) {
     const api = await source('src/lib/' + file)
