@@ -4,6 +4,50 @@ Flow registrerer faktisk arbeidstid og viser områder, oppgaver, historikk og st
 Flow er foreløpig publisert på [study.asinfra.no](https://study.asinfra.no/) under
 Flow v1-overgangen. Domenet, Pages og Supabase Auth-returer beholdes.
 
+## Offentlig produktoversikt (#19)
+
+Denne endringen legger til en offentlig oversikt før innlogging; den er ikke
+merget eller deployet av implementasjonsarbeidet. Produksjonsadressen er fortsatt
+`https://study.asinfra.no/`. Domeneflytting i #14 er en separat sak.
+
+Et førstegangsbesøk viser kort introduksjon, arbeidsdag/timer, oppgaver/områder,
+statistikk og historikk/eksport. `PublicFlowOverview` bruker `FlowExamples` og
+utelukkende konstruerte data fra `public-flow-example.ts`, ikke en demo-konto.
+De illustrative kontrollene er tekst, ikke fungerende appknapper. Diagrammet
+gjenbruker dagens rene SVG-/legend-komponenter med tekstlig tallgrunnlag.
+Oversiktens CSS er avgrenset til `public-flow.css`; workspace er ikke redesignet.
+
+Logg inn-knappene ruller til eksisterende `AuthForm` og fokuserer e-postfeltet.
+Funksjonsknappen fokuserer arbeidsdagens overskrift. Ingen av dem skriver URL
+query/hash eller bruker routing, slik at Supabase fortsatt kan håndtere Auth-
+returer. Login, registrering, bekreftelseslenker og kuraterte feil er uendret.
+
+`AppView` viser rolig loading mens session avklares. Bekreftet session uten feil
+går direkte til `Account`; logout gir offentlig oversikt igjen. Bare `Account`
+monterer de private datahookene. Uinnlogget oversikt starter ingen Flow-, område-,
+oppgave-, historikk-, statistikk-, eksport- eller session-reads. Auth-klientens
+vanlige sessionkontroll er fortsatt tillatt. Det åpnes ingen private API-er eller
+RLS-regler. Deling, demo-login og offentlig eksport er ikke implementert.
+
+Uten gyldig konfigurasjon kan oversikten fortsatt vises i dev/runtime, men i stedet
+for login-skjema vises en tydelig konfigurasjonsfeil. Eksisterende produksjonsbuild
+krever fortsatt de to offentlige konfigurasjonsverdiene; CI-regelen er uendret.
+
+`tests/public-flow.test.mjs` renderer ekte TSX med Vites eksisterende SSR-transform
+(uten ny testavhengighet eller lyttende server) og tester offentlig/session/loading/
+error/config-gating, AuthForm, statiske/anonyme eksempler og fravær av private
+hooks/API-importer i presentasjonen. Browser-smoke bør i tillegg dekke:
+
+1. Åpne uten session: oversikt, ett h1/main, ingen private nettverkskall.
+2. Logg inn-CTA fokuserer e-post; funksjons-CTA og skip link fungerer med tastatur.
+3. Bytt til Opprett konto og tilbake; kontroller feil og eksisterende bekreftelsesflyt.
+4. Login → Account, reload med session → Account uten landing, logout/reload → offentlig.
+5. Kontroller 1280/768/390/320 px, diagram/legend/tallgrunnlag og ingen ytre horisontal scrolling.
+6. Manglende config/sessionfeil: fortsatt offentlig innhold, ingen private data og tydelig varsel.
+7. ASInfra Apps og søk viser Flow og åpner fortsatt `study.asinfra.no`; gamle `apps/#study` virker.
+
+Ingen backend-, DNS-, Pages-domain- eller Supabase Auth URL-endringer inngår.
+
 ## Arkitektur og repoansvar
 
 - **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier
@@ -335,8 +379,8 @@ Database-/RLS-testene eies av [canonical backend](https://github.com/andsolste/a
 Eksporttester dekker CSV, formula-vern, presisjon, paging, feil/avbrudd/retry,
 stale svar og fire rapportperioder. Backend tester over 1100 rader, DST, RLS og
 frosset referansetid separat. Dette er ikke hosted JWT-/flerforbindelsesverifisering.
-Offentlig Flow-oversikt (#19), domeneovergang (#14), deling/cloud upload, mål og
-streaks er utenfor denne implementasjonen.
+Den offentlige oversikten (#19) er beskrevet øverst; ekte arbeidsdata krever
+fortsatt Auth. Domeneovergang (#14), deling/cloud upload, mål og streaks er utenfor.
 
 ## Produksjonssjekkliste etter merge/deploy
 

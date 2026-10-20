@@ -1,0 +1,52 @@
+/* Public product overview only. Authenticated workspace styles remain in styles.css. */
+.public-flow { min-width: 0; }
+.public-hero { max-width: 49rem; padding: clamp(1.5rem, 5vw, 4rem) 0; }
+.public-hero h2 { max-width: 20ch; font-size: clamp(1.8rem, 4vw, 2.75rem); line-height: 1.15; letter-spacing: -.035em; }
+.public-hero > p:not(.section-label) { max-width: 60ch; color: var(--text-secondary); font-size: 1.05rem; line-height: 1.7; }
+.public-hero > p.auth-error { color: var(--error); }
+.public-actions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin-top: var(--space-6); }
+.public-feature, .public-auth { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); padding-block: clamp(2rem, 5vw, 4rem); border-top: 1px solid var(--border); }
+.public-feature-copy { max-width: 53ch; align-self: start; }
+.public-feature-copy h2 { max-width: 26ch; font-size: clamp(1.4rem, 2.5vw, 1.85rem); }
+.public-feature-copy > p:not(.section-label) { color: var(--text-secondary); line-height: 1.7; }
+.public-steps { padding-left: 1.25rem; color: var(--text-secondary); }
+.public-steps li { padding-left: .25rem; margin-block: .75rem; }
+.public-demo { min-width: 0; margin: 0; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-wrap: anywhere; }
+.public-example-label { margin: 0 0 var(--space-6); font-size: .75rem; color: var(--blue); }
+.public-timer { border-top: 2px solid var(--purple); }
+.public-demo-clock { display: grid; gap: .5rem; margin: var(--space-6) 0; text-align: center; font-variant-numeric: tabular-nums; }
+.public-demo-clock .clock-value { font-size: clamp(2.5rem, 6vw, 4.25rem); }
+.public-demo-activity { text-align: center; }
+.public-demo-activity h3 { margin: 0; font-size: 1.25rem; }
+.public-demo-activity > p:last-child { margin-top: .375rem; color: var(--text-secondary); }
+.public-period { margin: var(--space-6) 0; text-align: center; }
+.public-period dt { font-size: .8rem; color: var(--text-muted); }
+.public-period dd { margin: .375rem 0 0; font-variant-numeric: tabular-nums; font-size: 1.4rem; }
+.public-illustrative-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; }
+.public-illustrative-controls span { padding: .625rem 1rem; border: 1px solid var(--border); border-radius: var(--control-radius); color: var(--text-secondary); font-size: .9rem; }
+.public-timer > .timer-meta { text-align: center; }
+.public-task-list, .public-history-list { list-style: none; margin: 0; padding: 0; }
+.public-task-list li { padding-block: var(--space-4); border-top: 1px solid var(--border); }
+.public-task-list h3 { margin: .375rem 0; font-size: 1rem; }
+.public-task-list p { margin: 0; }
+.public-week-total { margin: 0; }
+.public-week-total dt { font-size: .85rem; color: var(--text-muted); }
+.public-week-total dd { margin: .375rem 0 0; font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.public-day-totals { display: grid; gap: .5rem; font-size: .85rem; }
+.public-day-totals > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; }
+.public-day-totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+.public-example-note { padding-left: var(--space-4); border-left: 2px solid var(--border); font-size: .85rem; }
+.public-history-total { margin: 0; color: var(--text-muted); font-size: .8rem; }
+.public-history-total strong { display: block; color: var(--text-primary); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.public-demo .panel-heading h3 { margin: 0; }
+.public-history-list { margin-top: var(--space-4); }
+.public-history-list li { display: grid; gap: .25rem; padding: .75rem 0 .75rem 1rem; border-left: 2px solid var(--border); }
+.public-history-list li > span:first-child { color: var(--text-muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.public-history-list strong { font-size: .9rem; font-weight: 500; }
+.public-history-list .public-pause { border-left-style: dashed; color: var(--text-muted); font-size: .85rem; }
+.public-auth { scroll-margin-top: var(--space-6); }
+.public-auth-form { min-width: 0; }
+.public-auth .auth-section { margin: 0; }
+@media (min-width: 760px) {
+  .public-feature, .public-auth { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; gap: clamp(2rem, 5vw, 4rem); }
+}

@@ -33,7 +33,9 @@ export function StatisticsLegend({ subjects, onArea }: { subjects: SubjectWork[]
     </li>)}</ul>
 }
 
-export default function StatisticsChart({ summary, period }: { summary: StatisticsSummary; period: StatisticsPeriod }) {
+export default function StatisticsChart({ summary, period, description = 'Faktisk arbeidstid ved siste serverkontroll, uten pauser. Datoer er logiske Flow-datoer. Områder og eksakt tid finnes i områdelisten og under Vis tallgrunnlag.' }: {
+  summary: StatisticsSummary; period: StatisticsPeriod; description?: string
+}) {
   const prefix = useId()
   const day = period.kind === 'day' || period.kind === 'total'
   const month = period.kind === 'month'
@@ -53,14 +55,14 @@ export default function StatisticsChart({ summary, period }: { summary: Statisti
       <svg className={month ? 'statistics-svg is-month' : 'statistics-svg'} viewBox={`0 0 ${width} ${height}`}
         role="img" aria-labelledby={`${prefix}-title ${prefix}-desc`}>
         <title id={`${prefix}-title`}>{day ? 'Arbeidstid fordelt på områder' : 'Daglig arbeidstid fordelt på områder'}</title>
-        <desc id={`${prefix}-desc`}>Faktisk arbeidstid ved siste serverkontroll, uten pauser. Datoer er logiske Flow-datoer. Områder og eksakt tid finnes i områdelisten og under Vis tallgrunnlag.</desc>
+        <desc id={`${prefix}-desc`}>{description}</desc>
         <SubjectPatterns prefix={prefix} subjects={summary.areas} />
         <g aria-hidden="true">
           {day ? summary.areas.map(subject => {
             const bar = summary.total ? subject.work / summary.total * width : 0
             const x = dayX; dayX += bar
             return <rect key={key(subject)} x={x} y="10" width={bar} height="30" fill={paint(prefix, subject)}>
-              <title>{subjectLabel(subject)}: {formatDuration(subject.work)}</title>
+              <title>{`${subjectLabel(subject)}: ${formatDuration(subject.work)}`}</title>
             </rect>
           }) : <>
             {scale.ticks.map(tick => {
@@ -72,14 +74,14 @@ export default function StatisticsChart({ summary, period }: { summary: Statisti
               const x = left + slot * index + (slot - barWidth) / 2
               let stacked = 0
               return <g key={value.date}>
-                <title>{value.label}: {formatDuration(value.total)}</title>
+                <title>{`${value.label}: ${formatDuration(value.total)}`}</title>
                 {!value.total && <rect className="statistics-zero" x={x} y={bottom - 3} width={barWidth} height="3" />}
                 {summary.areas.map(subject => {
                   const work = value.areas.find(row => row.id === subject.id)?.work ?? 0
                   const barHeight = work / scale.max * (bottom - top)
                   const y = bottom - stacked - barHeight; stacked += barHeight
                   return work > 0 && <rect key={key(subject)} x={x} y={y} width={barWidth} height={barHeight} fill={paint(prefix, subject)}>
-                    <title>{value.label} · {subjectLabel(subject)}: {formatDuration(work)}</title>
+                    <title>{`${value.label} · ${subjectLabel(subject)}: ${formatDuration(work)}`}</title>
                   </rect>
                 })}
                 <text className="statistics-axis" x={x + barWidth / 2} y={bottom + 23} textAnchor="middle">
