@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createClient } from '@supabase/supabase-js'
-import { taskFields, taskQueue, deadlineLabel, taskDayTime, createTaskApi, taskApplied } from '../src/lib/flow-tasks.ts'
+import { taskFields, taskDeadlineInput, taskDeadlineForDate, taskQueue, deadlineLabel, taskDayTime, createTaskApi, taskApplied } from '../src/lib/flow-tasks.ts'
 import { startActivityCommand } from '../src/lib/flow-activity.ts'
 import { createFlowApi, mapFlowTask } from '../src/lib/flow-work.ts'
 import { createFlowStore } from '../src/lib/flow-work-store.ts'
@@ -50,6 +50,51 @@ test('deadline input validates local DST and preserves unchanged absolute precis
     assert.throws(()=>taskFields('  ','','',''))
     assert.throws(()=>taskFields('x'.repeat(201),'','',''))
     assert.throws(()=>taskFields('Title','x'.repeat(2001),'',''))
+  } finally { if(previous===undefined) delete process.env.TZ; else process.env.TZ=previous }
+})
+test('new deadline dates default to local 23:00; date changes retain the selected minute and clearing remains optional',()=>{
+  const previous=process.env.TZ
+  try {
+    for(const zone of ['UTC','Europe/Oslo','America/New_York']) {
+      process.env.TZ=zone
+      const input=taskDeadlineForDate('2026-11-12')
+      assert.equal(input,'2026-11-12T23:00')
+      const date=new Date(taskFields('Read','','',input).deadline)
+      assert.equal(date.getFullYear(),2026);assert.equal(date.getMonth(),10);assert.equal(date.getDate(),12)
+      assert.equal(date.getHours(),23);assert.equal(date.getMinutes(),0);assert.equal(date.getSeconds(),0);assert.equal(date.getMilliseconds(),0)
+      assert.equal(taskDeadlineForDate('2026-11-13',input),'2026-11-13T23:00')
+      assert.equal(taskDeadlineForDate('2026-11-13','2026-11-12T09:45'),'2026-11-13T09:45')
+      assert.equal(taskDeadlineForDate('',input),'')
+      assert.equal(taskFields('Read','','',taskDeadlineForDate('',input)).deadline,null)
+      assert.equal(taskDeadlineForDate('2026-11-14',taskDeadlineForDate('',input)),'2026-11-14T23:00')
+    }
+  } finally { if(previous===undefined) delete process.env.TZ; else process.env.TZ=previous }
+})
+test('minute-only task edits preserve original seconds/subseconds verbatim and changed deadlines use whole minutes',()=>{
+  const previous=process.env.TZ
+  try {
+    for(const zone of ['UTC','Europe/Oslo','America/New_York']) {
+      process.env.TZ=zone
+      const exact='2026-11-12T12:34:56.123456Z', input=taskDeadlineInput(exact)
+      assert.match(input,/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+      assert.equal(taskFields('Renamed','Description changed','',input,exact).deadline,exact)
+      const changed=taskFields('Read','','',taskDeadlineForDate('2026-11-13',input),exact).deadline
+      assert.notEqual(changed,exact)
+      assert.equal(new Date(changed).getSeconds(),0);assert.equal(new Date(changed).getMilliseconds(),0)
+      const timeChanged=new Date(taskFields('Read','','',input.slice(0,11)+'09:15',exact).deadline)
+      assert.equal(timeChanged.getHours(),9);assert.equal(timeChanged.getMinutes(),15)
+      assert.equal(timeChanged.getSeconds(),0);assert.equal(timeChanged.getMilliseconds(),0)
+      assert.equal(taskFields('Read','','','',exact).deadline,null)
+      assert.ok(deadlineLabel(task(1,exact),Date.parse('2026-11-11T00:00:00Z'))
+        .endsWith(new Date(exact).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})))
+    }
+    process.env.TZ='Europe/Oslo'
+    for(const exact of ['2026-10-25T00:30:45.123456Z','2026-10-25T01:30:45.654321Z']) {
+      assert.equal(taskDeadlineInput(exact),'2026-10-25T02:30')
+      assert.equal(taskFields('Renamed','','',taskDeadlineInput(exact),exact).deadline,exact)
+      assert.throws(()=>taskFields('Read','','','2026-10-25T02:31',exact),/to ganger/)
+    }
+    assert.throws(()=>taskFields('Read','','','2026-03-29T02:30','2026-03-28T22:00:45.123456Z'),/finnes ikke/)
   } finally { if(previous===undefined) delete process.env.TZ; else process.env.TZ=previous }
 })
 test('task work sums multiple native periods, excludes pauses/other tasks, clips at cutoff',()=>{
