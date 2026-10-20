@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
 import type { FlowTask } from '../types/flow'
-import { taskApplied, taskFields } from '../lib/flow-tasks'
+import { taskApplied, taskDeadlineForDate, taskDeadlineInput, taskFields } from '../lib/flow-tasks'
 import type { TaskCommand } from '../lib/flow-tasks'
-import { toLocalDateTime } from '../lib/history-time'
 
 export default function TaskForm({ data, task, onSaved, onCancel }: {
   data: FlowWorkspaceData; task: FlowTask | null; onSaved: (id: string) => void; onCancel: () => void
@@ -15,7 +14,7 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')
   const [area, setArea] = useState(task?.area_id ?? '')
-  const [deadline, setDeadline] = useState(() => task?.deadline_at ? toLocalDateTime(task.deadline_at) : '')
+  const [deadline, setDeadline] = useState(() => task?.deadline_at ? taskDeadlineInput(task.deadline_at) : '')
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState<{ command: TaskCommand; draft: string[] } | null>(null)
   const disabled = !['idle', 'running', 'paused'].includes(data.phase)
@@ -49,9 +48,12 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
         {currentTask === id && <p className="timer-meta">Pause eller bytt aktivitet før du endrer området.</p>}
       </div>
       <div className="auth-field"><label htmlFor="task-description">Beskrivelse (valgfritt)</label><textarea id="task-description" rows={3} maxLength={2000} value={description} onChange={e => setDescription(e.target.value)} /></div>
-      <div className="auth-field"><label htmlFor="task-deadline">Frist (valgfritt, lokal tid)</label>
-        <input id="task-deadline" type="datetime-local" step="1" value={deadline} onChange={e => setDeadline(e.target.value)} aria-describedby="task-deadline-hint" />
-        <p id="task-deadline-hint" className="timer-meta">Fristen følger klokkeslettet du velger, uavhengig av arbeidsdagens grense.</p>
+      <div className="auth-field"><label htmlFor="task-deadline">Fristdato (valgfritt, lokal tid)</label>
+        <input id="task-deadline" type="date" value={deadline.slice(0, 10)} onChange={e => setDeadline(taskDeadlineForDate(e.target.value, deadline))} aria-describedby="task-deadline-hint" />
+        <label htmlFor="task-deadline-time">Klokkeslett</label>
+        <input id="task-deadline-time" type="time" step="60" value={deadline ? deadline.slice(11) : '23:00'} required={Boolean(deadline)} disabled={!deadline}
+          onChange={e => setDeadline(`${deadline.slice(0, 10)}T${e.target.value.slice(0, 5)}`)} aria-describedby="task-deadline-hint" />
+        <p id="task-deadline-hint" className="timer-meta">Ny frist foreslås kl. 23:00. Tidspunktet er lokal tid, uavhengig av arbeidsdagens grense.</p>
         {deadline && <button type="button" className="text-button" onClick={() => setDeadline('')}>Fjern frist</button>}
       </div>
       {error && <p className="auth-error" role="alert">{error}</p>}

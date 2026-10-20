@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FlowTask } from '../types/flow.ts'
-import { fromLocalDateTime } from './history-time.ts'
+import { fromLocalDateTime, toLocalDateTime } from './history-time.ts'
 import { mapFlowTask } from './flow-work.ts'
 import type { FlowSnapshot } from './flow-work.ts'
 
@@ -12,11 +12,21 @@ export type TaskTime = { task_id: string; work_milliseconds: number; server_time
 export class TaskActionError extends Error {
   constructor(message: string) { super(message) }
 }
+export function taskDeadlineInput(iso: string) {
+  return toLocalDateTime(iso).slice(0, 16)
+}
+export function taskDeadlineForDate(date: string, previous = '') {
+  return date ? `${date}T${previous.slice(11, 16) || '23:00'}` : ''
+}
 export function taskFields(title: string, description: string, areaId: string, localDeadline: string, original?: string): TaskFields {
   const trimmed = title.trim()
   if (!trimmed || Array.from(trimmed).length > 200) throw new Error('Tittel må ha 1–200 tegn.')
   if (Array.from(description).length > 2000) throw new Error('Beskrivelsen kan ha høyst 2000 tegn.')
-  return { title: trimmed, description, areaId: areaId || null, deadline: localDeadline ? fromLocalDateTime(localDeadline, original) : null }
+  // A minute-only editor must not round an untouched legacy deadline or change
+  // which occurrence it belongs to during a repeated DST hour.
+  const deadline = !localDeadline ? null : original && localDeadline === taskDeadlineInput(original)
+    ? original : fromLocalDateTime(localDeadline, original)
+  return { title: trimmed, description, areaId: areaId || null, deadline }
 }
 export function taskQueue(tasks: readonly FlowTask[], now: number) {
   const group = (task: FlowTask) => task.deadline_at === null ? 2 : Date.parse(task.deadline_at) < now ? 0 : 1
