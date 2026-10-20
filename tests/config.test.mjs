@@ -24,7 +24,7 @@ test('auth errors are curated, not untrusted technical server messages', () => {
 })
 
 test('auth email redirects follow the new origin and root base in production/dev/preview', () => {
-  for (const origin of ['https://study.asinfra.no', 'http://localhost:5173', 'http://localhost:4173']) {
+  for (const origin of ['https://flow.asinfra.no', 'https://study.asinfra.no', 'http://localhost:5173', 'http://localhost:4173']) {
     assert.equal(authRedirectUrl(origin, '/'), origin + '/')
   }
   assert.equal(authRedirectUrl('https://example.test', '/custom-base/'), 'https://example.test/custom-base/')

@@ -1,4 +1,4 @@
-name: Validate and deploy Study
+name: Validate and deploy Flow
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: study-pages-${{ github.ref }}
+  group: flow-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -60,6 +60,6 @@ jobs:
     steps:
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Deploy Study
+      - name: Deploy Flow
         id: deployment
         uses: actions/deploy-pages@v4
