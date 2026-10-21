@@ -15,8 +15,10 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
   const last = open ?? current?.segments.at(-1)
   const lastActivity: FlowActivity = { areaId: last?.area_id ?? null, taskId: last?.task_id ?? null }
   const names = activityName(lastActivity, data.catalog)
+  const lastUsable = Boolean(last) && activityUsable(lastActivity, data.catalog)
   const serverNow = Math.max(data.now, data.data ? Date.parse(data.data.server_time) : 0)
   const totals = current ? flowDurations(current, serverNow) : { work: 0, elapsed: 0, pause: 0, current: 0 }
+  const periodTime = open ? totals.current : current && last ? flowDurations({ ...current, segments: [last] }, serverNow).work : 0
   const detailDay = current ?? data.closed
   const detailTotals = detailDay ? flowDurations(detailDay, serverNow) : totals
   const busy = data.phase === 'loading' || data.phase === 'recovering'
@@ -76,27 +78,28 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
         <p className={`timer-status is-${data.phase === 'error' ? 'error' : data.phase === 'running' ? 'running' : data.phase === 'paused' ? 'paused' : disabled ? 'loading' : 'ready'}`} role="status">{status}</p>
       </header>
       {notice}
-      <button type="button" className="flow-total" aria-haspopup="dialog" aria-controls="flow-details"
-        aria-label={`Vis dagsdetaljer. Arbeid i dag ${formatDuration(totals.work)}`} disabled={!data.data}
-        onClick={event => { opener.current = event.currentTarget; setPanel('day') }}>
-        <span className="clock-value">{formatDuration(totals.work)}</span><span className="clock-label">Faktisk arbeidstid · Vis dagsdetaljer</span>
-      </button>
       {current ? <div className="flow-current">
-        <p className="section-label">{open ? 'Nå' : 'Sist'}</p><h3 className="timer-subject">{names.area}</h3>
-        <p className="timer-description">{names.task}</p>
-        {open && <p className="flow-period"><strong>{formatDuration(totals.current)}</strong><span>denne arbeidsperioden</span></p>}
-        {!open && !activityUsable(lastActivity, data.catalog) && <p className="timer-meta">Siste aktivitet er ikke lenger tilgjengelig. Velg en annen aktivitet.</p>}
+        <p className="section-label">{data.phase === 'running' ? 'Nå' : data.phase === 'paused' && lastUsable ? 'Nå · pauset' : 'Siste aktivitet'}</p>
+        <h3 className="timer-subject">{lastActivity.taskId ? names.task : names.area}</h3>
+        <p className="timer-description">{lastActivity.taskId ? names.area : 'Uten spesifikk oppgave'}</p>
+        {last && <p className="flow-period"><strong>{formatDuration(periodTime)}</strong><span>{open ? 'denne arbeidsperioden' : 'siste arbeidsperiode'}</span></p>}
+        {!open && !lastUsable && <p className="timer-meta">Siste aktivitet er ikke lenger tilgjengelig. Velg en ny aktivitet.</p>}
         <div className="subject-actions timer-controls">
-          <button type="button" disabled={disabled} onClick={event => showActivity(event.currentTarget)}>{open ? 'Bytt aktivitet' : 'Velg annen aktivitet'}</button>
-          <button type="button" className="secondary-button" disabled={disabled} onClick={event => { if (open) void pause(); else void resume(event.currentTarget) }}>{open ? 'Pause' : 'Fortsett'}</button>
+          {(open || lastUsable) && <button type="button" disabled={disabled} onClick={event => { if (open) void pause(); else void resume(event.currentTarget) }}>{open ? 'Pause' : 'Fortsett'}</button>}
+          <button type="button" className={open || lastUsable ? 'secondary-button' : undefined} disabled={disabled}
+            onClick={event => showActivity(event.currentTarget)}>{!open && !lastUsable ? 'Velg ny aktivitet' : 'Bytt aktivitet'}</button>
         </div>
-        <p className="timer-meta">Pause er nok når du er ferdig for nå.</p>
       </div> : <div className="flow-idle">
-        <p>Ingen tid teller før du velger en aktivitet.</p>
+        <p>Velg en aktivitet, eller start en oppgave fra Neste. Ingen tid teller før du begynner.</p>
         <button type="button" disabled={disabled || !data.data?.next_boundary_at} onClick={event => showActivity(event.currentTarget)}>Velg hva du skal jobbe med</button>
         {data.data && !data.data.next_boundary_at && <p role="alert">Tidssonen kan ikke brukes. Kontroller systemets tidssone og hent status på nytt.</p>}
         {data.data?.legacy_active && <p className="timer-meta">Du har en tidligere økt som fortsatt pågår eller er pauset. Den avsluttes og lagres atomisk når du begynner med en Flow-aktivitet.</p>}
       </div>}
+      <button type="button" className="flow-total" data-prominent={!open} aria-haspopup="dialog" aria-controls="flow-details"
+        aria-label={`Vis dagsdetaljer. Arbeid i dag ${formatDuration(totals.work)}`} disabled={!data.data}
+        onClick={event => { opener.current = event.currentTarget; setPanel('day') }}>
+        <span className="clock-label">Arbeid totalt i dag</span><span className="clock-value">{formatDuration(totals.work)}</span><span className="clock-label">Vis dagsdetaljer →</span>
+      </button>
       <button type="button" className="text-button timer-refresh" disabled={busy} onClick={() => void data.reload()}>Hent status på nytt</button>
     </section>
     <DetailPanel id="flow-details" open={panel !== null} title={panel === 'day' ? 'Dagsdetaljer' : 'Velg aktivitet'}

@@ -13,6 +13,7 @@ import { useFlowHistory } from '../hooks/useFlowHistory'
 import { useFlowWorkDay } from '../hooks/useFlowWorkDay'
 import TaskQueue from './TaskQueue'
 import Tasks from './Tasks'
+import type { TaskRequest } from './Tasks'
 import FlowNavigation, { followFlowLink } from './FlowNavigation'
 import { useFlowNavigation } from '../hooks/useFlowNavigation'
 import { flowLocationUrl, flowViews } from '../lib/flow-navigation'
@@ -26,7 +27,7 @@ export default function Account({ session }: { session: Session }) {
   const history = useFlowHistory()
   const flow = useFlowWorkDay()
   const { location, navigate } = useFlowNavigation()
-  const [taskRequest, setTaskRequest] = useState<{ id: string | null } | null>(null)
+  const [taskRequest, setTaskRequest] = useState<TaskRequest | null>(null)
   const [taskEditing, setTaskEditing] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,10 +68,14 @@ export default function Account({ session }: { session: Session }) {
     if (accountMenu.current) accountMenu.current.open = false
   }
 
-  function openTask(id: string | null) {
+  function requestTask(next: TaskRequest) {
+    // A pending/uncertain write must keep its original form and revision until
+    // the shared store has checked it. Show that form instead of replacing it.
+    if (taskEditing && flow.pending) { navigate({ ...location, view: 'tasks' }); return }
     if (taskEditing && !window.confirm('Åpne en annen oppgave og forkaste det ulagrede oppgaveskjemaet?')) return
-    setTaskRequest({ id }); navigate({ ...location, view: 'tasks' })
+    setTaskRequest(next); navigate({ ...location, view: 'tasks' })
   }
+  function openTask(id: string | null) { requestTask({ id }) }
 
   async function signOut() {
     if (!supabase) return
@@ -108,9 +113,9 @@ export default function Account({ session }: { session: Session }) {
       <main id="study-content" className="timer-workspace" aria-label={flowViews[location.view]} tabIndex={-1} ref={panelFallback}>
         {/* Keep workspace/form state across views; only export is intentionally
             unmounted on close so its snapshot/jobs are cancelled as before. */}
-        <div hidden={location.view !== 'work'}>
+        <div className="work-layout" hidden={location.view !== 'work'}>
           <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} />
-          <TaskQueue data={flow} onOpen={openTask} />
+          <TaskQueue data={flow} onOpen={openTask} onCreate={() => requestTask({ id: null, create: true })} />
         </div>
         <section id="tasks-view" className="dashboard-panel" aria-labelledby="tasks-title" hidden={location.view !== 'tasks'}>
           <header className="view-heading"><p className="section-label">Oppgavehåndtering</p><h2 id="tasks-title">Oppgaver</h2></header>
