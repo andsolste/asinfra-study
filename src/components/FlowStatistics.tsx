@@ -55,7 +55,7 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
           <button type="button" className="secondary-button" aria-label={`Neste ${selected.unit}`} disabled={busy || !period.anchor} onClick={() => void data.selectPeriod(shiftFlowPeriod(period, 1))}>→</button>
         </div>}
       </div>
-      <p className="timer-meta">Logiske Flow-datoer · kl. 04:00 til neste kl. 04:00 · Pauser teller ikke</p>
+      <p className="timer-meta">Pauser teller ikke.</p>
       <button type="button" className="text-button" disabled={busy} onClick={() => void data.selectPeriod(period)}>Hent statistikk på nytt</button>
       {data.statisticsStatus === 'loading' && <p className="statistics-state" role="status">Henter statistikk …</p>}
       {data.statisticsError && <div role="alert"><p className="auth-error">{data.statisticsError}</p><button type="button" disabled={busy} onClick={() => void data.selectPeriod(period)}>Prøv igjen</button></div>}
@@ -69,7 +69,7 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
         {period.kind === 'week' || period.kind === 'month' || totals.total > 0 ? <StatisticsChart summary={totals} period={period} /> : null}
         {totals.areas.length > 0 && <StatisticsLegend subjects={totals.areas} onArea={id => area(id)} />}
         <StatisticsTable summary={totals} period={period} />
-        <p className="timer-meta">Inkluderer pågående arbeid ved serverkontroll {new Date(totals.server_time).toLocaleTimeString('nb-NO')}. Åpne panelet eller hent på nytt for oppdatert tid.</p>
+        <p className="timer-meta">Inkluderer pågående arbeid ved serverkontroll {new Date(totals.server_time).toLocaleTimeString('nb-NO')}. Hent på nytt for oppdatert tid.</p>
       </>}
     </>}
   </section>

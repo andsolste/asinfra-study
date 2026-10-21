@@ -29,7 +29,7 @@ export function TaskList({ data, tasks, onDetails, inPanel = false }: {
       const usable = activityUsable({ areaId: task.area_id, taskId: task.id }, data.catalog)
       return <li key={task.id} className={overdue ? 'task-row is-overdue' : 'task-row'}>
         <div className="task-summary"><p className="task-area">{area?.name ?? (task.area_id ? 'Utilgjengelig område' : 'Annet')}{area?.is_archived && ' · Arkivert område'}</p>
-          <h3><button type="button" className="task-title" aria-haspopup={inPanel ? undefined : 'dialog'} aria-controls={inPanel ? undefined : 'study-details'}
+          <h3><button type="button" className="task-title" aria-controls={inPanel ? undefined : 'tasks-view'}
             onClick={event => onDetails(task.id, event.currentTarget)}>{task.title}</button></h3>
           <p className="task-deadline">{task.status === 'completed' ? `Fullført ${new Date(task.completed_at).toLocaleDateString('nb-NO')}` : deadlineLabel(task, data.now)}</p>
         </div>
@@ -56,7 +56,7 @@ export default function TaskQueue({ data, onOpen }: {
       <TaskList data={data} tasks={tasks.slice(0, 5)} onDetails={onOpen} />
       {!tasks.length && <p>{!data.data ? 'Hent status for å vise oppgavekøen.' : data.catalog.tasks.length ? 'Alle oppgavene er fullført.' : 'Du har ingen aktive oppgaver ennå.'}</p>}
     </>}
-    <button type="button" className="secondary-button" aria-haspopup="dialog" aria-controls="study-details"
+    <button type="button" className="secondary-button" aria-controls="tasks-view"
       onClick={event => onOpen(null, event.currentTarget)}>{tasks.length ? 'Se alle oppgaver' : 'Opprett oppgave'}</button>
   </section>
 }

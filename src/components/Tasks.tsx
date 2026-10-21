@@ -47,10 +47,14 @@ function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData
   </section>
 }
 
-export default function Tasks({ data, initialId }: { data: FlowWorkspaceData; initialId: string | null }) {
+export default function Tasks({ data, initialId, request, onEditingChange }: {
+  data: FlowWorkspaceData; initialId: string | null; request?: { id: string | null } | null; onEditingChange?: (editing: boolean) => void
+}) {
   const [selected, setSelected] = useState(initialId)
   const [editing, setEditing] = useState(false)
   const heading = useRef<HTMLHeadingElement | null>(null)
+  useEffect(() => { if (request) { setSelected(request.id); setEditing(false) } }, [request])
+  useEffect(() => { onEditingChange?.(editing) }, [editing, onEditingChange])
   const tasks = taskQueue(data.catalog.tasks, data.now)
   const completed = data.catalog.tasks.filter(t => t.status === 'completed').sort((a, b) =>
     Date.parse(b.completed_at!) - Date.parse(a.completed_at!) || a.id.localeCompare(b.id))
