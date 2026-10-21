@@ -50,6 +50,27 @@ hooks/API-importer i presentasjonen. Browser-smoke bør i tillegg dekke:
 
 Den offentlige oversikten bruker samme Auth- og backendflyt som resten av appen.
 
+## Navigasjon i innlogget Flow (#27B)
+
+Hovedområdene er **Arbeid**, **Oppgaver** og **Innsikt**. Arbeid beholder timer og
+oppgavekø; Oppgaver er en vanlig hovedvisning. Innsikt samler Oversikt og
+Arbeidslogg, med Eksporter som sekundær dialoghandling. Konto-menyen inneholder
+e-post, Områder og Logg ut. På desktop brukes toppnavigasjon; under 700 px brukes
+bunnnavigasjon med plass reservert under innholdet. Den skjules når skjermtastaturet
+reduserer visningshøyden under redigering. ASInfra-lenken beholdes i headeren.
+
+`flow-navigation.ts` og `useFlowNavigation` bruker History API og query-parametre:
+`/` (Arbeid), `/?view=tasks`, `/?view=insights` og
+`/?view=insights&section=history`. Tilbake/fram og reload gjenoppretter visningen
+uten serverruter eller nye Pages-regler. Andre query-parametre og hash beholdes;
+Auth-flyten og den offentlige oversikten er uendret. Ingen URL omskrives ved login/load.
+
+`Account` eier fortsatt én langlivet arbeids-store. Timer, oppgaveutkast og
+historikkredigering beholdes når en hovedvisning skjules. Eksport monteres bare
+mens dialogen er åpen og avbrytes ved lukking/navigasjon som før. Dagsgrensen
+forklares i Dagsdetaljer og eksisterende tidssone-/datagrunnlagsvisninger, ikke
+gjentatt på normalflaten. Køsortering, API-er og backend er uendret.
+
 ## Arkitektur og repoansvar
 
 - **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier

@@ -25,7 +25,7 @@ export default function DetailPanel({ id = 'study-details', open, title, busy, h
       closeButton.current?.focus()
     } else if (!open && element.open) {
       element.close()
-      if (returnFocus?.isConnected) returnFocus.focus()
+      if (returnFocus?.isConnected && returnFocus.getClientRects().length > 0) returnFocus.focus()
       else fallbackFocus?.focus()
     }
   }, [open, returnFocus, fallbackFocus])

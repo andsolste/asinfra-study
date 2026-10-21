@@ -7,8 +7,8 @@ import { formatDuration } from '../lib/study-sessions'
 import DetailPanel from './DetailPanel'
 import FlowFeedback from './FlowFeedback'
 
-export default function FlowTimer({ data, organizationVersion, onCutover }: {
-  data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void
+export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus }: {
+  data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void; active?: boolean; fallbackFocus?: HTMLElement | null
 }) {
   const current = data.data?.current ?? null
   const open = current?.segments.find(s => s.ended_at === null)
@@ -34,6 +34,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover }: {
     timeZone: detailDay?.work_day.timezone, dateStyle: 'short', timeStyle: 'medium',
   })
   useEffect(() => { void data.reload() }, [organizationVersion, data.reload])
+  useEffect(() => { if (!active && !busy) setPanel(null) }, [active, busy])
   useEffect(() => {
     if (data.data?.legacy_active) legacyWasActive.current = true
     else if (current && legacyWasActive.current) { legacyWasActive.current = false; onCutover() }
@@ -89,7 +90,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover }: {
           <button type="button" disabled={disabled} onClick={event => showActivity(event.currentTarget)}>{open ? 'Bytt aktivitet' : 'Velg annen aktivitet'}</button>
           <button type="button" className="secondary-button" disabled={disabled} onClick={event => { if (open) void pause(); else void resume(event.currentTarget) }}>{open ? 'Pause' : 'Fortsett'}</button>
         </div>
-        <p className="timer-meta">{current.work_day.logical_date} · {current.work_day.timezone}<br />Dagen avsluttes ved {local(current.work_day.cutoff_at)}. Pause er nok når du er ferdig for nå.</p>
+        <p className="timer-meta">Pause er nok når du er ferdig for nå.</p>
       </div> : <div className="flow-idle">
         <p>Ingen tid teller før du velger en aktivitet.</p>
         <button type="button" disabled={disabled || !data.data?.next_boundary_at} onClick={event => showActivity(event.currentTarget)}>Velg hva du skal jobbe med</button>
@@ -99,7 +100,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover }: {
       <button type="button" className="text-button timer-refresh" disabled={busy} onClick={() => void data.reload()}>Hent status på nytt</button>
     </section>
     <DetailPanel id="flow-details" open={panel !== null} title={panel === 'day' ? 'Dagsdetaljer' : 'Velg aktivitet'}
-      busy={busy} hasForms={false} returnFocus={opener.current} fallbackFocus={heading.current} onClose={() => setPanel(null)}>
+      busy={busy} hasForms={false} returnFocus={opener.current} fallbackFocus={active ? heading.current : fallbackFocus} onClose={() => setPanel(null)}>
       {panel === 'activity' && <form className="flow-picker" onSubmit={choose}>
         {notice}
         <fieldset disabled={disabled}><legend className="sr-only">Velg hva du skal jobbe med</legend>
@@ -120,6 +121,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover }: {
       {panel === 'day' && <div className="flow-day-details">
         {detailDay ? <>
           <p>{detailDay.work_day.logical_date} · {detailDay.work_day.timezone}{detailDay.work_day.ended_at && ' · Sist avsluttede dag i denne fanen'}</p>
+          <p className="timer-meta">Dagen avsluttes ved {local(detailDay.work_day.cutoff_at)}. Pause er nok når du er ferdig for nå.</p>
           <dl className="flow-day-metrics"><div><dt>Faktisk arbeidstid</dt><dd>{formatDuration(detailTotals.work)}</dd></div>
             <div><dt>Dagen startet</dt><dd>{local(detailDay.work_day.started_at)}</dd></div>
             <div><dt>Total klokketid</dt><dd>{formatDuration(detailTotals.elapsed)}</dd></div>
