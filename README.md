@@ -71,6 +71,26 @@ mens dialogen er åpen og avbrytes ved lukking/navigasjon som før. Dagsgrensen
 forklares i Dagsdetaljer og eksisterende tidssone-/datagrunnlagsvisninger, ikke
 gjentatt på normalflaten. Køsortering, API-er og backend er uendret.
 
+### Arbeid: Nå, Neste og Etterpå (#27C)
+
+Arbeidsperioden og Pause/Fortsett er primære; dagens total og Dagsdetaljer er
+sekundære. Arbeid bruker to kolonner fra 1100 px, ellers én. En pauset, fortsatt
+gyldig aktivitet beholdes som Nå, med tiden i siste arbeidsperiode. Utilgjengelig
+siste aktivitet får i stedet et tydelig valg av ny aktivitet.
+
+`flow-recommendations.ts` utleder én Neste og opptil tre Etterpå fra eksisterende
+`taskQueue()` og `activityUsable()`. Aktiv/gyldig pauset oppgave utelates, sammen
+med fullførte oppgaver og oppgaver i arkiverte/utilgjengelige områder. Dette er
+fristbasert sortering, ikke lagret prioritet eller planlegging. Forfalt-tallet
+teller **alle aktive forfalte oppgaver**, også Nå og oppgaver som må redigeres før
+de kan startes; knappen går til den fulle Oppgaver-visningen. Ingen data endres.
+
+Start/Bytt til bruker samme `startActivityCommand` og arbeids-store som timeren.
+Opprett oppgave går direkte til eksisterende TaskForm i Oppgaver. Ulagrede
+skjemaer beholdes ved vanlig navigasjon; eksplisitt åpning av et annet/nytt skjema
+krever bekreftelse før et eksisterende utkast forkastes. En pågående/usikker
+lagring viser det opprinnelige skjemaet til arbeids-store-en har kontrollert svaret.
+
 ## Arkitektur og repoansvar
 
 - **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier

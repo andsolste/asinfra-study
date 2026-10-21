@@ -9,6 +9,8 @@ import { TaskList } from './TaskQueue'
 import TaskForm from './TaskForm'
 import FlowFeedback from './FlowFeedback'
 
+export type TaskRequest = { id: string | null; create?: boolean }
+
 function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData; onEdit: () => void }) {
   const [total, setTotal] = useState<FlowStatistics | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,12 +50,13 @@ function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData
 }
 
 export default function Tasks({ data, initialId, request, onEditingChange }: {
-  data: FlowWorkspaceData; initialId: string | null; request?: { id: string | null } | null; onEditingChange?: (editing: boolean) => void
+  data: FlowWorkspaceData; initialId: string | null; request?: TaskRequest | null; onEditingChange?: (editing: boolean) => void
 }) {
   const [selected, setSelected] = useState(initialId)
   const [editing, setEditing] = useState(false)
+  const [formVersion, setFormVersion] = useState(0)
   const heading = useRef<HTMLHeadingElement | null>(null)
-  useEffect(() => { if (request) { setSelected(request.id); setEditing(false) } }, [request])
+  useEffect(() => { if (request) { setSelected(request.id); setEditing(Boolean(request.create)); setFormVersion(version => version + 1) } }, [request])
   useEffect(() => { onEditingChange?.(editing) }, [editing, onEditingChange])
   const tasks = taskQueue(data.catalog.tasks, data.now)
   const completed = data.catalog.tasks.filter(t => t.status === 'completed').sort((a, b) =>
@@ -63,7 +66,7 @@ export default function Tasks({ data, initialId, request, onEditingChange }: {
   return <div className="tasks-panel">
     <h3 className="sr-only" ref={heading} tabIndex={-1}>Oppgavevisning</h3>
     <FlowFeedback data={data} />
-    {editing ? <TaskForm key={selected ?? 'new'} data={data} task={task} onSaved={view} onCancel={() => setEditing(false)} />
+    {editing ? <TaskForm key={`${selected ?? 'new'}:${formVersion}`} data={data} task={task} onSaved={view} onCancel={() => setEditing(false)} />
       : selected ? <><button type="button" className="text-button" onClick={() => view(null)}>← Alle oppgaver</button>
         <TaskDetails id={selected} data={data} onEdit={() => setEditing(true)} /></>
       : <>
