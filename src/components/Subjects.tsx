@@ -3,8 +3,10 @@ import type { useSubjects } from '../hooks/useSubjects'
 import { splitSubjects } from '../lib/subjects'
 import type { Subject } from '../lib/subjects'
 import SubjectForm from './SubjectForm'
+import type { FlowTask } from '../types/flow'
+import { activeAreaTasks } from '../lib/flow-task-list'
 
-export default function Subjects({ data }: { data: ReturnType<typeof useSubjects> }) {
+export default function Subjects({ data, tasks }: { data: ReturnType<typeof useSubjects>; tasks: readonly FlowTask[] }) {
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const heading = useRef<HTMLHeadingElement | null>(null)
@@ -24,7 +26,7 @@ export default function Subjects({ data }: { data: ReturnType<typeof useSubjects
   }
 
   function list(rows: Subject[]) {
-    return <ul className="subject-list">{rows.map(subject => <li key={subject.id}>
+    return <ul className="subject-list">{rows.map(subject => <li key={subject.id} className={editing === subject.id ? 'subject-row is-editing' : 'subject-row'}>
       <div className="subject-heading">
         {subject.code && <p className="subject-code">{subject.code}</p>}
         <h4>{subject.name}</h4>
@@ -36,7 +38,11 @@ export default function Subjects({ data }: { data: ReturnType<typeof useSubjects
             aria-label={`Rediger ${subject.name}`} onClick={() => setEditing(subject.id)}>Rediger</button>
           <button type="button" className="text-button" disabled={disabled || creating || editing !== null}
             aria-label={`${subject.is_archived ? 'Aktiver' : 'Arkiver'} ${subject.name}`}
-            onClick={async () => { if (await data.setArchived(subject)) heading.current?.focus() }}>
+            onClick={async () => {
+              const count = activeAreaTasks(tasks, subject.id)
+              if (!subject.is_archived && count > 0 && !window.confirm(`Dette området har ${count} aktive oppgaver. De beholdes, men kan ikke startes før de flyttes eller området aktiveres igjen. Arkiver området?`)) return
+              if (await data.setArchived(subject)) heading.current?.focus()
+            }}>
             {subject.is_archived ? 'Aktiver igjen' : 'Arkiver'}</button>
         </div>}
     </li>)}</ul>
@@ -47,7 +53,7 @@ export default function Subjects({ data }: { data: ReturnType<typeof useSubjects
       <div><p className="section-label">Organisering</p><h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine områder</h2></div>
       {!creating && <button type="button" className="secondary-button" disabled={disabled || editing !== null} onClick={() => setCreating(true)}>Nytt område</button>}
     </header>
-    <p>Bruk områder til studier, egne prosjekter eller annet arbeid. Arkiver områder du ikke bruker nå; de kan aktiveres igjen senere.</p>
+    <p>Områder samler studier, prosjekter og annet arbeid. Arkivering sletter ikke tidligere arbeid eller oppgaver, men sperrer området for nytt arbeid. Du kan aktivere det igjen senere.</p>
     <p role="status">{data.status === 'loading' ? 'Henter områdene dine …' : data.busy ? 'Lagrer …' : data.notice}</p>
     {data.error && <div role="alert"><p className="auth-error">{data.error}</p>
       <button className="text-button" type="button" disabled={data.busy} onClick={() => void data.reload()}>Hent områder på nytt</button></div>}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
 import type { FlowTask } from '../types/flow'
 import { taskApplied, taskDeadlineForDate, taskDeadlineInput, taskFields } from '../lib/flow-tasks'
@@ -20,6 +20,11 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
   const disabled = !['idle', 'running', 'paused'].includes(data.phase)
   const currentTask = data.data?.current?.segments.find(s => s.ended_at === null)?.task_id
   const oldArea = data.catalog.areas.find(a => a.id === area)
+  const titleInput = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => titleInput.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
   useEffect(() => {
     // A retry/status refresh may confirm an earlier save after this form's
     // original request returned. Navigate only if no newer draft was typed.
@@ -35,17 +40,19 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
       if (await data.dispatch(command)) onSaved(id)
     } catch (error) { setError(error instanceof Error ? error.message : 'Kontroller oppgaven.') }
   }
-  return <form className="task-form" onSubmit={save}>
+  return <form className="task-form" onSubmit={save} aria-busy={disabled}>
     <h3>{task ? 'Rediger oppgave' : 'Ny oppgave'}</h3>
     <fieldset disabled={disabled}><legend className="sr-only">Oppgavedetaljer</legend>
-      <div className="auth-field"><label htmlFor="task-title">Tittel</label><input id="task-title" required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} /></div>
+      <div className="auth-field"><label htmlFor="task-title">Tittel</label><input ref={titleInput} id="task-title" required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="auth-field"><label htmlFor="task-area">Område (valgfritt)</label>
         <select id="task-area" value={area} disabled={currentTask === id} onChange={e => setArea(e.target.value)}>
           <option value="">Annet · uten område</option>
           {oldArea?.is_archived && <option value={oldArea.id}>{oldArea.name} · Arkivert</option>}
+          {area && !oldArea && <option value={area}>Utilgjengelig område</option>}
           {data.catalog.areas.filter(a => !a.is_archived).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
         {currentTask === id && <p className="timer-meta">Pause eller bytt aktivitet før du endrer området.</p>}
+        {area && (!oldArea || oldArea.is_archived) && <p className="timer-meta">Velg et aktivt område eller «Annet» for å gjøre oppgaven startbar. Uendret tilknytning beholdes ved lagring.</p>}
       </div>
       <div className="auth-field"><label htmlFor="task-description">Beskrivelse (valgfritt)</label><textarea id="task-description" rows={3} maxLength={2000} value={description} onChange={e => setDescription(e.target.value)} /></div>
       <div className="auth-field"><label htmlFor="task-deadline">Fristdato (valgfritt, lokal tid)</label>

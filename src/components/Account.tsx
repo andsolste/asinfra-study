@@ -140,7 +140,7 @@ export default function Account({ session }: { session: Session }) {
         returnFocus={panelOpener.current} fallbackFocus={panelFallback.current} busy={panelBusy}
         hasForms={panel === 'subjects'} onClose={() => setPanel(null)}>
         {panel === 'export' && <FlowExport history={history} />}
-        {panel === 'subjects' && <Subjects data={subjects} />}
+        {panel === 'subjects' && <Subjects data={subjects} tasks={flow.catalog.tasks} />}
       </DetailPanel>
     </>
   )

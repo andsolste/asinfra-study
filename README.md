@@ -91,6 +91,37 @@ skjemaer beholdes ved vanlig navigasjon; eksplisitt åpning av et annet/nytt skj
 krever bekreftelse før et eksisterende utkast forkastes. En pågående/usikker
 lagring viser det opprinnelige skjemaet til arbeids-store-en har kontrollert svaret.
 
+### Oppgaver og Områder (#27D)
+
+Oppgaver grupperes i **Forfalt**, **Kommende frister** og **Uten frist**. Fristen
+er ikke en planlagt arbeidsdato. `flow-task-list.ts` deler eksisterende
+deterministiske køsortering i grupper; fullførte oppgaver ligger kollapset og
+sorteres etter faktisk fullføringstid. Områdefilteret endrer bare visningen og
+inkluderer arkiverte, manglende og områdeløse oppgaver. Lokalt søk er bevisst
+utelatt: grupper og ett enkelt filter gir oversikt uten enda en kontroll.
+
+Arkiverte/utilgjengelige områder merkes i den vanlige fristgruppen, uten å
+duplisere eller skjule oppgaven. Den kan åpnes, redigeres, flyttes til et aktivt
+område/Annet og fullføres. Start/Bytt til bruker eksisterende aktivitetkommando
+og arbeids-store. Pågående oppgave viser Pågår, ikke en deaktivert startknapp.
+Detaljer, arbeid i dag/total, fullføring/gjenåpning og TaskForm bruker de samme
+API-ene, ID-ene, originalrevisjonene og presisjons-/recoveryreglene som før.
+Fokus flyttes til tittel ved oppretting/redigering, og tilbake til detalj/listen
+etter lagring eller avbryt. Utkast beholdes ved hovednavigasjon.
+
+Områder ligger fortsatt under Konto. En kompakt liste har Rediger/Arkiver;
+arkiverte områder ligger kollapset med Aktiver igjen. Arkivering bekreftes når
+arbeids-store-ens katalog viser aktive oppgaver i området. Canonical backend
+sin `flow_subject_bridge` oppdaterer bare området, ikke oppgavene: de beholdes,
+men nytt arbeid i arkivert område avvises. Eksisterende område-hook og etterfølgende
+katalogoppdatering brukes fortsatt. Ingen migrations eller databasenavn endres.
+
+**Senere vurdering:** Et eget issue for serverlagret manuell prioritering er
+nyttig dersom brukeren skal kunne velge «Sett som neste» uavhengig av frist.
+Det bør støtte Flytt opp/ned med tastatur/mobil, ikke bare dra-og-slipp. Frister
+eller browser-only localStorage skal ikke brukes som skjult prioritet. Dette
+er ikke implementert her; Arbeid beholder den fristbaserte anbefalingen fra 27C.
+
 ## Arkitektur og repoansvar
 
 - **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier

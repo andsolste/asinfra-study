@@ -28,8 +28,11 @@ export function taskFields(title: string, description: string, areaId: string, l
     ? original : fromLocalDateTime(localDeadline, original)
   return { title: trimmed, description, areaId: areaId || null, deadline }
 }
+export function taskOverdue(task: FlowTask, now: number) {
+  return task.status === 'active' && task.deadline_at !== null && Date.parse(task.deadline_at) < now
+}
 export function taskQueue(tasks: readonly FlowTask[], now: number) {
-  const group = (task: FlowTask) => task.deadline_at === null ? 2 : Date.parse(task.deadline_at) < now ? 0 : 1
+  const group = (task: FlowTask) => task.deadline_at === null ? 2 : taskOverdue(task, now) ? 0 : 1
   return tasks.filter(t => t.status === 'active').sort((a, b) => group(a) - group(b)
     || (a.deadline_at && b.deadline_at ? Date.parse(a.deadline_at) - Date.parse(b.deadline_at) : 0)
     || Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id))
@@ -37,7 +40,7 @@ export function taskQueue(tasks: readonly FlowTask[], now: number) {
 export function deadlineLabel(task: FlowTask, now: number) {
   if (!task.deadline_at) return 'Ingen frist'
   const date = new Date(task.deadline_at), overdue = now - date.getTime()
-  if (task.status === 'active' && overdue > 0) {
+  if (taskOverdue(task, now)) {
     const days = Math.floor(overdue / 86400000), hours = Math.floor(overdue / 3600000)
     return days ? `Forfalt med ${days} ${days === 1 ? 'dag' : 'dager'}` : hours ? `Forfalt med ${hours} t` : 'Forfalt med under 1 t'
   }
