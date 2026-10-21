@@ -1,15 +1,15 @@
 # ASInfra Flow
 
 Flow registrerer faktisk arbeidstid og viser områder, oppgaver, historikk og statistikk.
-Produksjonen er fortsatt [study.asinfra.no](https://study.asinfra.no/).
-Denne #14-PR-en klargjør [flow.asinfra.no](https://flow.asinfra.no/), men utfører
-ikke DNS-, Pages-domain- eller hosted Auth-cutover. Ikke merge før cutover er avtalt.
-Se [preflight, legacy-valg, nummerert runbook og rollback](docs/flow-domain-cutover.md).
+Produksjon: [flow.asinfra.no](https://flow.asinfra.no/), med HTTPS.
+Domeneflyttingen i #14 ble gjennomført og manuelt verifisert 20. oktober 2026.
+[study.asinfra.no](https://study.asinfra.no/) og
+[asinfra.no/study/](https://asinfra.no/study/) er legacy-redirects direkte til Flow.
+Se [sluttstatus, historisk runbook og rollback](docs/flow-domain-cutover.md).
 
 ## Offentlig produktoversikt (#19)
 
-Appen har en offentlig oversikt før innlogging. Produksjonsadressen er fortsatt
-`https://study.asinfra.no/` frem til den kontrollerte domeneflyttingen i #14.
+Appen har en offentlig oversikt før innlogging på `https://flow.asinfra.no/`.
 
 Et førstegangsbesøk viser kort introduksjon, arbeidsdag/timer, oppgaver/områder,
 statistikk og historikk/eksport. `PublicFlowOverview` bruker `FlowExamples` og
@@ -45,24 +45,27 @@ hooks/API-importer i presentasjonen. Browser-smoke bør i tillegg dekke:
 4. Login → Account, reload med session → Account uten landing, logout/reload → offentlig.
 5. Kontroller 1280/768/390/320 px, diagram/legend/tallgrunnlag og ingen ytre horisontal scrolling.
 6. Manglende config/sessionfeil: fortsatt offentlig innhold, ingen private data og tydelig varsel.
-7. ASInfra Apps og søk viser Flow; etter cutover skal Apps åpne `flow.asinfra.no`.
-   Gamle `apps/#study` beholdes i ASInfra-PR-en.
+7. ASInfra Apps og søk viser Flow; Apps åpner `flow.asinfra.no`.
+   Gamle `apps/#study` beholdes for bokmerker.
 
-Ingen backend-, DNS-, Pages-domain- eller Supabase Auth URL-endringer inngår.
+Den offentlige oversikten bruker samme Auth- og backendflyt som resten av appen.
 
 ## Arkitektur og repoansvar
 
 - **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier
   React/TypeScript/Vite-frontenden, frontendtestene og Pages-deploymenten.
-  Dagens domain er `study.asinfra.no`; planlagt domain etter #14 er `flow.asinfra.no`.
+  Produksjonsdomenet er `flow.asinfra.no`.
 - **[andsolste/asinfra/supabase](https://github.com/andsolste/asinfra/tree/main/supabase)**
   er canonical backend: config, migrations, RLS, constraints, RPC-er og backendtester.
   Database- og RLS-endringer gjøres med egen PR/review der, aldri i dette repoet.
+- **[andsolste/asinfra-study-redirect](https://github.com/andsolste/asinfra-study-redirect)**
+  eier kun legacy-inngangen `study.asinfra.no` og videresender til Flow.
 
 Begge bruker samme eksisterende Supabase-prosjekt/Auth. Brukere, ID-er og data er
 beholdt. Ikke opprett et nytt prosjekt eller kopier backendmigrasjoner hit.
 Frontend ble opprinnelig trukket ut av hovedrepoet; den gamle
-`https://asinfra.no/study/` er nå bare en legacy redirect til subdomenet.
+`https://asinfra.no/study/` er nå bare en legacy redirect direkte til Flow.
+Domeneflyttingen krevde ingen data-, bruker- eller backendmigrasjon.
 
 ### Flow v1, fase #11: native arbeidsdag og tidtaker
 
@@ -112,8 +115,8 @@ cutover, ikke flyttes inn i native tid. Alle gamle RPC-er beholdes. `StudyTimer`
 beholdes som legacy referanse/testdekning, men monteres ikke i dashboardet.
 
 Se [canonical backend-dokumentasjon](https://github.com/andsolste/asinfra/blob/main/supabase/README.md).
-Migrations kopieres aldri hit. Eksport beskrives nedenfor; #14 flytter domenet.
-Ingen hosted-, DNS- eller Auth-endringer utføres her.
+Migrations kopieres aldri hit. Eksport beskrives nedenfor. Domeneflyttingen i #14
+er gjennomført uten backendendring; frontend-deployment kjører ikke migrations.
 
 ### Flow v1, fase #12: oppgaver, frister og arbeidskø
 
@@ -354,20 +357,19 @@ en gjentatt time beholder den opprinnelige forekomsten.
 gjør samme kontroll og publiserer **kun `dist/`** til GitHub Pages.
 Kildekode, dependencies, env-filer og backend publiseres ikke.
 
-Dokumentert Pages-oppsett før cutover er **Source: GitHub Actions**,
-**Custom domain: study.asinfra.no** og HTTPS; bekreft hosted verdier i UI før byttet.
+Pages bruker **Source: GitHub Actions**, **Custom domain: flow.asinfra.no** og HTTPS.
 Ingen `CNAME` spores her; domain styres i Pages settings for Actions-publisering.
-Etter avtalt cutover skal custom domain være `flow.asinfra.no`.
 Repository variables under **Settings → Secrets and variables → Actions →
 Variables** er `VITE_SUPABASE_URL` og `VITE_SUPABASE_PUBLISHABLE_KEY`.
 CI feiler tydelig hvis de mangler. DNS/Auth endres ikke av workflowen.
 
-Auth-bekreftelseslenker bruker gjeldende origin + Vites base, fortsatt uten
-hardkodet produksjonsdomain. Hosted Auth er ikke endret i denne PR-en.
-Legg først til `https://flow.asinfra.no/` i Redirect URLs; behold Study, localhost
-5173, preview 4173 og andre app-/legacy-returer. Etter HTTPS- og Auth-smoke byttes
-Site URL til `https://flow.asinfra.no/`. Les full liste og e-postmaler først;
-ikke erstatt listen eller fjern Study under cutover. Eksakte steg står i runbooken.
+Auth-bekreftelseslenker bruker gjeldende origin + Vites base, uten hardkodet
+produksjonsdomain. Supabase **Site URL er `https://flow.asinfra.no/`**.
+Redirect URLs skal tillate Flow; Study, `http://localhost:5173/`,
+`http://localhost:4173/` og andre nødvendige app-/legacy-returer kan fortsatt
+beholdes. Les hele listen før fremtidige endringer; ikke erstatt andre appers
+returer. Login, reload/session, logout, eksisterende data og signup/e-postbekreftelse
+på Flow ble manuelt verifisert ved cutover 20. oktober 2026.
 
 `check:build` skiller canonical/`og:url` fra assets og kontrollerer både Flow-
 metadata og faktiske root-baserte JS/CSS-filer. Configtestene beholder legacy,
@@ -391,7 +393,7 @@ Eksporttester dekker CSV, formula-vern, presisjon, paging, feil/avbrudd/retry,
 stale svar og fire rapportperioder. Backend tester over 1100 rader, DST, RLS og
 frosset referansetid separat. Dette er ikke hosted JWT-/flerforbindelsesverifisering.
 Den offentlige oversikten (#19) er beskrevet øverst; ekte arbeidsdata krever
-fortsatt Auth. Hosted domeneovergang (#14) gjenstår til runbooken er gjennomført;
+fortsatt Auth. Domeneovergangen (#14) ble gjennomført 20. oktober 2026;
 deling/cloud upload, mål og streaks er utenfor.
 
 ## Produksjonssjekkliste etter merge/deploy
@@ -399,8 +401,8 @@ deling/cloud upload, mål og streaks er utenfor.
 Bruk to egne testkontoer (A/B) og merkede testdata, ikke credentials i Git.
 Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 
-1. Åpne gjeldende produksjonsadresse over HTTPS (Study før cutover, Flow etter);
-   ingen asset-404 eller konsollfeil. Følg #14-runbooken for selve domenebyttet.
+1. Åpne **https://flow.asinfra.no/** over HTTPS; ingen asset-404 eller konsollfeil.
+   Kontroller også legacy-inngangene ved endringer i navigasjon/hosting.
 2. Test login, reload av innlogging og logout.
 3. Kontroller Flow-branding, eksisterende egne områder og historiske økter.
 4. Opprett/rediger/arkiver et testområde og aktiver det igjen.

@@ -1,9 +1,30 @@
-# Flow #14 – preflight og manuell cutover
+# Flow #14 – gjennomført domeneflytting og historisk runbook
 
-Status: **klargjort for review, ikke gjennomført**. Ikke bruk dette dokumentet
-som bekreftelse på at DNS, TLS, Pages eller hosted Auth er endret.
+**Cutover gjennomført 20. oktober 2026.** Andreas har manuelt verifisert
+produksjonen og bekreftet følgende sluttstatus:
 
-## Dagens modell og avgrensning
+- Flow kjører på **https://flow.asinfra.no/** over HTTPS.
+- Login, reload/session, logout, eksisterende data og signup/e-postbekreftelse
+  fungerer på Flow. Supabase Site URL er `https://flow.asinfra.no/`.
+- `https://study.asinfra.no/` videresender til Flow via den aktive Pages-siten
+  [andsolste/asinfra-study-redirect](https://github.com/andsolste/asinfra-study-redirect).
+  Deep path/query/hash er testet på legacy-redirecten.
+- `https://asinfra.no/study/` videresender direkte til Flow, og Apps-kortet peker dit.
+- [Flow PR #22](https://github.com/andsolste/asinfra-study/pull/22) og
+  [ASInfra PR #32](https://github.com/andsolste/asinfra/pull/32) er merget.
+- Frontend eies fortsatt av `andsolste/asinfra-study`; canonical backend er
+  fortsatt `andsolste/asinfra/supabase`. Ingen backend-/data-/brukermigrasjon
+  var nødvendig for domeneflyttingen.
+- Study, localhost 5173, preview 4173 og andre nødvendige app-/legacy-adresser
+  kan beholdes i allowed Redirect URLs. Hele listen må fortsatt vurderes før
+  fremtidige endringer; Site URL er ikke lenger Study.
+
+Dokumentasjonen nedenfor bevarer **den opprinnelige planen og observasjonene fra
+før cutover som historikk**, ikke gjenstående arbeid eller instrukser om å bytte
+domene på nytt. Tidligere usikkerhet om hosting/legacy er avklart ved løsningen
+over. Rollback-informasjonen beholdes uendret. #14 lukkes ikke automatisk.
+
+## Historisk: modell og avgrensning før cutover
 
 - `andsolste/asinfra-study` bygger frontend med `.github/workflows/pages.yml`:
   Node 24, `npm ci`, tester, typecheck, Vite-build og `check:build`. PR-er valideres;
@@ -33,7 +54,7 @@ leverandørkonto, kjøpte tjenester, hosted Pages-innstillinger eller fremtidig 
 ASInfra README oppgir Uniweb; kontroller faktisk kontrollpanel før endringer.
 Ingen eksisterende CDN/redirect-tjeneste er dokumentert i repoene.
 
-## Legacy: beslutning før cutover
+## Historisk: legacy-vurdering før cutover
 
 **Anbefaling ut fra det verifiserbare oppsettet: en separat, minimal Pages-site
 for `study.asinfra.no`, etter eget review.** Eksempel på foreslått repo:
@@ -100,7 +121,7 @@ rollback før B brukes. Kreves kontinuerlig gammel HTTPS-inngang, stopp her og
 review en separat redirect/proxy med forhåndsklargjort TLS (A eller egen løsning).
 Ikke «løs» dette ved å slette gammel DNS eller håpe at Pages redirecter automatisk.
 
-## DNS, Pages og Auth – verdier for senere endring
+## Historisk: planlagte DNS-, Pages- og Auth-verdier
 
 | Område | Planlagt verdi/handling |
 | --- | --- |
@@ -127,7 +148,7 @@ recovery, magic link og egne lenker for hardkodet Study/Site URL. Bevar fungeren
 en egen mal feilaktig ignorerer `emailRedirectTo`. Ikke innfør en ny callback-route
 som appen ikke har. Hosted maler/allowlist er ikke lest eller endret i preflight.
 
-## Nummerert cutover-runbook (kun etter review)
+## Historisk: opprinnelig nummerert cutover-runbook
 
 1. Review begge `chore/flow-domain-cutover`-PR-ene og grønn CI. Bekreft privat
    gjeldende Pages-domain/HTTPS, DNS-konto/records, Supabase Site URL, hele redirect-
@@ -184,7 +205,11 @@ som appen ikke har. Hosted maler/allowlist er ikke lest eller endret i preflight
     fra pre-cutover til ferdig status i en liten oppfølgings-PR. Lukk #14 **bare**
     når ny produksjon og begge gamle innganger er verifisert. Ingen automatisk lukking.
 
-## Cutover-smoke
+## Kontrollgrunnlag for cutover og senere vedlikehold
+
+Den manuelle produksjonskontrollen er oppsummert øverst. Den utvidede sjekklisten
+under beholdes som driftsreferanse, ikke som en ny påstand om at hvert enkelt
+testpunkt er kjørt i dokumentasjonsoppgaven.
 
 - **Flow:** HTTPS, oversikt, root-assets, login/logout, eksisterende data, timer,
   tasks, historikk, statistikk, eksport, reload/recovery, signup og email confirmation.
@@ -212,12 +237,15 @@ som appen ikke har. Hosted maler/allowlist er ikke lest eller endret i preflight
    gamle bokmerker og eksisterende data. DNS/TLS-cache betyr at rollback heller
    ikke har en garantert øyeblikkelig tidsgrense.
 
-## Ikke bekreftet i preflight
+## Historiske begrensninger og senere verifisering
 
-Faktisk leverandøravtale/redirect-funksjoner, innloggede Pages-domain-/TLS-verdier,
-full hosted Supabase allowlist/Site URL/e-postmaler og domeneeierskapsverifisering.
-Ny Flow-DNS/TLS, hosted Auth/bekreftelse og Study-subdomene-redirect er **cutover-smoke**,
-ikke resultater fra lokale tester. Ingen hosted innstillinger er endret.
+Den opprinnelige preflighten kunne ikke bekrefte leverandøravtale/redirect-funksjoner,
+innloggede Pages-/TLS-verdier, full hosted Supabase allowlist, Site URL eller
+e-postmaler. Dette var begrensninger ved preflighten, ikke dagens cutover-status.
+Andreas har senere bekreftet Uniweb-oppsettet og Pages-redirect som valgt løsning,
+samt verifisert Flow over HTTPS, hosted Auth/bekreftelse, Site URL og legacy-
+redirectene 20. oktober 2026. Hele allowlisten og innholdet i e-postmalene er ikke
+gjengitt her. Dokumentasjonsoppryddingen endrer ingen hosted innstillinger.
 
 ## Kilder for driftsvalgene
 
