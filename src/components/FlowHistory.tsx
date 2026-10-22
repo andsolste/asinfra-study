@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FlowHistoryData } from '../hooks/useFlowHistory'
 import type { useSubjects } from '../hooks/useSubjects'
-import type { FlowCatalog } from '../lib/flow-work'
+import type { FlowCatalog, FlowSnapshot } from '../lib/flow-work'
+import type { NativeSegmentCorrection } from '../lib/native-period'
 import { activityName } from '../lib/flow-work'
 import { dateLabel, validZone } from '../lib/flow-statistics'
 import { dayTimeline, nativeHistoryWork } from '../lib/flow-history'
@@ -11,43 +12,18 @@ import { formatDuration } from '../lib/study-sessions'
 import { durationMilliseconds, timestampMicroseconds } from '../lib/time-precision'
 import { workMilliseconds } from '../lib/history-time'
 import HistoryForm from './HistoryForm'
+import NativePeriodForm from './NativePeriodForm'
 
 const localTime = (iso: string, zone?: string) => new Date(iso).toLocaleString('nb-NO', { timeZone: zone, dateStyle: 'short', timeStyle: 'short' })
 function dayAreas(segments: readonly FlowWorkSegment[], catalog: FlowCatalog) {
   const names = [...new Set(segments.map(s => s.area_id))].map(areaId => activityName({ areaId, taskId: null }, catalog).area)
   return names.slice(0, 2).join(' · ') + (names.length > 2 ? ` · +${names.length - 2} andre` : '')
 }
-function AttributionForm({ segment, catalog, data, onClose }: { segment: FlowWorkSegment; catalog: FlowCatalog; data: FlowHistoryData; onClose: () => void }) {
-  const [area, setArea] = useState(segment.area_id ?? ''), [task, setTask] = useState(segment.task_id ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const busy = data.mutation !== null
-  const tasks = catalog.tasks.filter(t => t.area_id === (area || null) || t.id === task)
-  return <form className="history-form" onSubmit={async event => {
-    event.preventDefault(); setError(null)
-    if (task && (area !== (segment.area_id ?? '') || task !== (segment.task_id ?? '')) && !catalog.tasks.some(t => t.id === task && t.area_id === (area || null))) {
-      setError('Velg en oppgave som nå tilhører området, eller fjern oppgaven.'); return
-    }
-    const saved = await data.attribute({ segmentId: segment.id, areaId: area || null, taskId: task || null, expectedAreaId: segment.area_id, expectedTaskId: segment.task_id })
-    if (saved) onClose()
-  }}>
-    <fieldset disabled={busy || data.status !== 'ready'}><legend>Korriger tilknytning</legend>
-      <p className="timer-meta">Bare område og oppgave endres. Tidspunkter og arbeidsdag beholdes.</p>
-      <div className="auth-field"><label htmlFor="history-area">Område</label><select autoFocus id="history-area" value={area} onChange={e => { setArea(e.target.value); setTask('') }}>
-        <option value="">Annet</option>{area && !catalog.areas.some(a => a.id === area) && <option value={area}>Utilgjengelig område</option>}
-        {catalog.areas.map(a => <option key={a.id} value={a.id}>{a.name}{a.is_archived ? ' · Arkivert' : ''}</option>)}
-      </select></div>
-      <div className="auth-field"><label htmlFor="history-task">Oppgave</label><select id="history-task" value={task} onChange={e => setTask(e.target.value)}>
-        <option value="">Uten oppgave</option>{task && !tasks.some(t => t.id === task) && <option value={task}>Utilgjengelig oppgave</option>}
-        {tasks.map(t => <option key={t.id} value={t.id}>{t.title}{t.status === 'completed' ? ' · Fullført' : ''}</option>)}
-      </select></div>
-      {error && <p role="alert" className="auth-error">{error}</p>}
-      <div className="subject-actions"><button type="submit">Lagre tilknytning</button><button type="button" className="secondary-button" onClick={onClose}>Avbryt</button></div>
-    </fieldset>
-  </form>
-}
-export default function FlowHistory({ data, subjects, catalog }: { data: FlowHistoryData; subjects: ReturnType<typeof useSubjects>; catalog: FlowCatalog }) {
+export default function FlowHistory({ data, subjects, catalog, onCorrect = data.correctNative, correctionUnavailable = false }: {
+  data: FlowHistoryData; subjects: ReturnType<typeof useSubjects>; catalog: FlowCatalog; onCorrect?: (input: NativeSegmentCorrection) => Promise<boolean>; correctionUnavailable?: boolean
+}) {
   const [editing, setEditing] = useState<string | null>(null)
-  const [segment, setSegment] = useState<{ key: string; value: FlowWorkSegment } | null>(null)
+  const [segment, setSegment] = useState<{ key: string; value: FlowWorkSegment; snapshot: FlowSnapshot } | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const list = useRef<HTMLUListElement>(null)
   const editorOpener = useRef<HTMLElement | null>(null)
@@ -58,7 +34,7 @@ export default function FlowHistory({ data, subjects, catalog }: { data: FlowHis
     setEditing(null); setSegment(null)
     requestAnimationFrame(() => {
       const opener = editorOpener.current
-      if (opener?.isConnected && opener.getClientRects().length) opener.focus()
+      if (opener?.isConnected && opener.getClientRects().length && !opener.matches(':disabled')) opener.focus()
       else (document.getElementById('history-' + editorRow.current) ?? heading.current)?.focus()
     })
   }
@@ -88,14 +64,15 @@ export default function FlowHistory({ data, subjects, catalog }: { data: FlowHis
             return <li key={period.key} className={period.kind === 'pause' ? 'is-pause' : ''}>
               <p><time dateTime={period.start}>{localTime(period.start, entry.snapshot.work_day.timezone)}</time> → <time dateTime={period.end}>{localTime(period.end, entry.snapshot.work_day.timezone)}</time></p>
               {period.kind === 'pause' ? <span>Pause · {formatDuration(durationMilliseconds(timestampMicroseconds(period.end) - timestampMicroseconds(period.start)))}</span> : <><span className="history-period-kind">Arbeidsperiode</span><strong>{labels.area}</strong><p>{period.taskId ? labels.task : 'Uten oppgave'}</p>
-                {original && <button type="button" className="text-button" disabled={disabled || !!editing || !!segment}
-                  aria-label={`Korriger tilknytning for ${localTime(period.start, entry.snapshot.work_day.timezone)}`}
-                  onClick={event => { editorOpener.current = event.currentTarget; editorRow.current = entry.key; setSegment({ key: entry.key, value: original }) }}>Korriger tilknytning</button>}
+                {original && <button type="button" className="text-button" disabled={disabled || correctionUnavailable || !!editing || !!segment}
+                  aria-label={`Rediger arbeidsperiode fra ${localTime(period.start, entry.snapshot.work_day.timezone)}`}
+                  onClick={event => { editorOpener.current = event.currentTarget; editorRow.current = entry.key; data.prepareCorrection(); setSegment({ key: entry.key, value: original, snapshot: entry.snapshot }) }}>Rediger arbeidsperiode</button>}
               </>}
-              {segment?.key === entry.key && segment.value.id === period.segmentId && <AttributionForm key={segment.value.id} segment={segment.value} catalog={catalog} data={data} onClose={close} />}
+              {segment?.key === entry.key && segment.value.id === period.segmentId && <NativePeriodForm key={segment.value.id} snapshot={segment.snapshot} segment={segment.value}
+                catalog={catalog} now={data.now} busy={busy} blocked={data.correctionBlocked === segment.value.id} disabled={correctionUnavailable || data.status !== 'ready'} error={data.error} onSave={onCorrect} onClose={close} />}
             </li>
           })}</ol>
-          <p className="timer-meta">Pause før første aktivitet telles ikke. Eventuell siste pause varer til lagret slutt/dagsgrense. Tidsredigering av native dager tilbys ikke her.</p>
+          <p className="timer-meta">Pause før første aktivitet telles ikke. Eventuell siste pause varer til lagret slutt/dagsgrense. Korriger arbeidsperioder uten å endre arbeidsdagens identitet.</p>
         </details>
       </> : <>
         <header className="history-entry-heading"><div className="history-entry-info"><p className="section-label">Eldre registrering</p>
@@ -118,7 +95,7 @@ export default function FlowHistory({ data, subjects, catalog }: { data: FlowHis
     }}>{data.loadingMore ? 'Henter flere …' : 'Vis flere'}</button>}
     <details className="statistics-policy history-policy"><summary>Om arbeidsloggen og eldre registreringer</summary>
       <p>Listen er paginert, ikke filtrert etter perioden i Oversikt. Flow-dager bruker lagret dato og tidssone. Eldre klokkeslett vises i {validZone(data.timezone) ? data.timezone : 'absolutt ISO-format'}; de har ikke lagret historisk tidssone.</p>
-      <p>Native dager kan få korrigert område og oppgave, ikke tidspunkter. Eldre registreringer har egen redigering og sletting.</p>
+      <p>Native arbeidsperioder kan få korrigert start, slutt, område og oppgave. Samme start og slutt gir 0 min, uten sletting. Eldre registreringer har egen redigering og sletting.</p>
     </details>
   </section>
 }

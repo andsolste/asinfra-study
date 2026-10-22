@@ -94,8 +94,41 @@ støtter reload/discard; det er ikke en timerkilde eller aktivitetslogg. Det skr
 høyst omtrent hvert minutt, samt ved best-effort lifecycle-kontrollpunkter, og
 forkastes ved pause/bytte, kontobytte/logout eller etter 48 timer. Blokkert/korrupt
 storage hindrer ikke timeren. Ingen inputovervåkning eller Idle Detection brukes.
-En glemt timer uten execution-gap oppdages ikke. Native tidskorrigering krever en
-egen gjennomgått løsning; denne fasen endrer ikke historikken.
+En glemt timer uten execution-gap oppdages ikke. Brukeren kan korrigere feil tid
+eksplisitt; ingen gap, checkpoint eller callback bestemmer sluttiden.
+
+### Korriger native arbeidsperioder (#34C)
+
+Arbeidslogg → Vis tidslinje → **Rediger arbeidsperiode** samler start, slutt,
+område og oppgave i ett skjema. Lagret `work_day.timezone` brukes, også etter
+tidssonereise. Minuttfeltene bevarer urørte absolutte timestamps med sekunder,
+mikrosekunder og riktig DST-forekomst eksakt. Et nytt minutt bruker `:00` sekunder;
+nye ikke-eksisterende eller tvetydige lokale klokkeslett avvises fremfor å gjette.
+Arkivert/fullført/utilgjengelig historisk tilknytning kan beholdes urørt; endret
+oppgave må passe området. Samme absolutte start/slutt gir 0 min uten sletting.
+Arbeidsdagens ID, dato, start, tidssone og frosne grenser kan ikke redigeres.
+
+**Korriger tid** i avbruddsvarselet åpnes bare ved eksplisitt klikk for akkurat det
+observerte åpne segmentet. Aktivitet/start er skrivebeskyttet og sluttfeltet er
+tomt: brukeren velger når arbeidet faktisk sluttet. Lagring lukker perioden og
+pauser Flow, uten ny aktivitet eller automatisk Fortsett. **Pause nå** er fortsatt
+serverstyrt nåtid og endrer ikke allerede registrert arbeid.
+
+`NativeSegmentCorrection` skiller frosne `expected`-verdier fra `desired` for
+start/slutt/område/oppgave. Bare RPC-en `flow_work_segment_correct` skriver; ingen
+direkte tabelloppdatering brukes. Feil vises kuratert, dobbeltlagring sperres og
+vanlig valideringsfeil beholder utkastet. Conflict/usikkert resultat sperrer videre
+lagring til editoren åpnes på nytt fra ferske data. Ved mistet svar leses snapshot
+og sammenlignes med ønsket tilstand; klienten sender aldri automatisk et rebased kall.
+Historikk, valgt statistikk/område og arbeids-store/katalog hentes på nytt.
+Task-total, rapport og eksport leser fortsatt canonical segmenter, ikke egne
+«korrigerte summer». Eksport åpnes på nytt for ferskt grunnlag; et eksisterende
+manifest avviser endrede data i stedet for å blande før/etter korreksjonen.
+
+**Deployment dependency:** canonical migration
+`asinfra/supabase/migrations/20261022170000_add_flow_segment_correction.sql` må
+gjennomgås og deployes før denne frontenden. Hosted migration krever separat
+godkjenning; den kjøres ikke av frontend eller Pages.
 
 ### Arbeid: Nå, Neste og Etterpå (#27C)
 
@@ -160,8 +193,8 @@ visningstidssone har fortsatt ulike roller.
 Arbeidslogg viser avsluttede Flow-dager og tydelig merkede eldre registreringer,
 nyeste først. Hver native dag har dato, arbeidstid og en kort områdeoversikt;
 lagret tidssone, start/slutt og `dayTimeline()` ligger under Vis tidslinje.
-Korrigering endrer fortsatt bare tilknytning med forventede originalverdier,
-aldri native tidspunkter eller arbeidsdag. Eldre registreringer beholder
+Korrigering av native perioder bruker den samlede editoren fra #34C med forventede
+originalverdier, uten å endre arbeidsdagens identitet. Eldre registreringer beholder
 HistoryForm og bekreftet sletting. Fokus returneres til handling/rad etter
 redigering og til første nye rad etter Vis flere.
 
@@ -339,10 +372,10 @@ segmentet, aldri oppgavens nåværende område. `NULL` er nøytralt Annet.
 
 Native tidslinje viser arbeidsperioder, direkte bytter, pauser mellom arbeid og
 siste pause frem til avslutning/cutoff. Den finner ikke på en pause før første
-aktivitet. Dagens aktive dag ligger fortsatt ved timeren. Native korreksjon er
-bevisst begrenset til **område/oppgave på avsluttede perioder i en avsluttet dag**
-via `flow_history_attribute`, med forventet gammel tilknytning. Dagidentitet,
-frosne grenser og tidsstempler kan ikke endres; native sletting tilbys ikke.
+aktivitet. Dagens aktive dag ligger fortsatt ved timeren. Native korreksjon bruker
+`flow_work_segment_correct` fra #34C; den eldre `flow_history_attribute` beholdes
+for kompatibilitet. Dagidentitet og frosne grenser kan ikke endres; native sletting
+tilbys ikke.
 Eldre økter beholder full editor og bekreftet sletting; den nye editoren bruker
 `flow_history_edit_legacy` som atomisk avviser overlapp med andre registreringer.
 Bekreftede og usikre writes etterfølges av ny lesing av historikk og statistikk;
@@ -471,7 +504,7 @@ Build trenger de to browserverdiene ovenfor. Vite bruker `base: '/'` og lager
 - **Områder:** egne områder med valgfri kode kan opprettes, redigeres, arkiveres og aktiveres
   igjen. Nye økter bruker aktive områder; historiske økter kan bruke arkiverte områder.
 - **Historikk:** native dager og eldre økter deler én kronologisk liste med «Vis flere».
-  Bare eldre registreringer har full tidseditor/sletting; native har begrenset tilknytning.
+  Native har samlet periodeeditor; bare eldre registreringer har sletting.
 - **Statistikk:** Dag/Uke/Måned/Totalt under Innsikt → Oversikt, med total, mest aktive område
   og (for uke/måned) mest aktive dag. Områdenavn i listen åpner områdedetaljer.
   Ved bytte mellom dag/uke/måned brukes i dag for en gjeldende periode, ellers dens første dag.
@@ -577,7 +610,7 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
     siste pause og arbeid etter midnatt på riktig lagret Flow-dato.
 20. Åpne område og Annet: kontroller fire summer, oppgaver og eldre arbeid uten
     oppgave. Flyttet/fullført oppgave skal beholde segmentets historiske område.
-21. Korriger native tilknytning; tidspunkter/dag må være uendret. Test eldre edit
+21. Korriger native start/slutt/tilknytning; dagidentitet/grenser må være uendret. Test eldre edit
     med overlapp, avvisning, og mistet svar etter lagring; alle lesinger må oppdateres.
 22. Bytt displayzone, også ugyldig/manglende; native dato skal ikke flyttes.
     Test 03:59:59/04:00, DST, uke-/måned-/årsskifte, tom periode og Totalt uten sone.
