@@ -149,7 +149,7 @@ p.timer-status.is-loading { color: var(--blue); }
 .timer-controls button { min-width: 7rem; }
 .timer-start { min-width: 10rem; }
 .timer-refresh { margin-top: var(--space-4); }
-.flow-total { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .25rem 1rem; width: 100%; margin: var(--space-6) 0 0; padding: var(--space-4); background: transparent; border-color: var(--border); color: var(--text-primary); text-align: left; }
+.flow-total { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto); align-items: center; gap: .25rem 1rem; width: 100%; margin: var(--space-6) 0 0; padding: var(--space-4); background: transparent; border-color: var(--border); color: var(--text-primary); text-align: left; }
 .flow-total:hover:not(:disabled) { background: var(--surface-elevated); border-color: var(--purple-light); }
 .flow-total .clock-value { grid-column: 2; grid-row: 1 / 3; font-size: 1.35rem; overflow-wrap: normal; }
 .flow-total[data-prominent="true"] .clock-value { font-size: clamp(1.35rem, 4vw, 2rem); }

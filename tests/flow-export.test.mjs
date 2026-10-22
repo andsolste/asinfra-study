@@ -84,10 +84,10 @@ test('CSV neutralizes formulas, controls, whitespace/full-width prefixes; quotes
   assert.equal(cells(csvText('trygt, "sitert"\næøå')+'\r\n')[0][0],'trygt, "sitert"\næøå')
   assert.equal(cells(csvRow(row()))[0][7],'1','Numeric work seconds are not mutated as text')
 })
-test('microsecond precision stays exact through summation; display uses whole seconds only',()=>{
+test('microsecond precision stays exact through summation; only human display uses completed minutes',()=>{
   const micro=876544n+987654n
-  assert.equal(durationSeconds(micro),'1.864198');assert.equal(durationSeconds(3600000000n),'3600');assert.equal(durationClock(3712345678n),'01:01:52')
-  assert.equal(durationClock(360001000000n),'100:00:01')
+  assert.equal(durationSeconds(micro),'1.864198');assert.equal(durationSeconds(3600000000n),'3600');assert.equal(durationClock(3712345678n),'1 t 1 min')
+  assert.equal(durationClock(360001000000n),'100 t')
   assert.equal(timestampMicroseconds('2026-10-19T11:00:00.123456+01:00'),timestampMicroseconds('2026-10-19T10:00:00.123456Z'))
 })
 test('filenames reuse Flow period dates without PII, including week/month/year boundaries',()=>{
@@ -183,10 +183,10 @@ test('report uses aggregate API only for all periods, supports zero, cancels sta
 test('report presentation preserves all four periods, zero, areas/days/contributions, server generation time and privacy',()=>{
   for(const kind of ['day','week','month','total']){
     const data=summary(kind),model=reportModel({...data,email:'never-export@example.test',user_id:id(999)})
-    assert.equal(model.total,'00:00:01');assert.equal(model.legacy,true);assert.match(model.generated,/2026.*12:00/)
+    assert.equal(model.total,'0 min');assert.equal(model.legacy,true);assert.match(model.generated,/2026.*12:00/)
     assert.equal(model.contributions[0].area,'Annet');assert.equal(model.contributions[0].task,'Uten oppgave / eldre registrering')
     assert.ok(!JSON.stringify(model).includes('never-export'));assert.ok(!JSON.stringify(model).includes(id(999)))
-    assert.equal(reportModel(summary(kind,0)).total,'00:00:00')
+    assert.equal(reportModel(summary(kind,0)).total,'0 min')
   }
 })
 test('download uses a local Blob/object URL and always removes/revokes it, never a network upload',()=>{

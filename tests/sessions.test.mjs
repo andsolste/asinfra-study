@@ -26,7 +26,7 @@ test('duration sums raw segments, pauses, running/paused/finished, sleep and tim
   const finished = mapSessionSnapshot(fixture('finished'))
   assert.equal(sessionStatus(finished), 'finished')
   assert.deepEqual(sessionDurations(finished), { work: 96 * 60000, elapsed: 125 * 60000, pause: 29 * 60000 })
-  assert.equal(formatDuration(sessionDurations(finished).work), '01:36:00')
+  assert.equal(formatDuration(sessionDurations(finished).work), '1 t 36 min')
   const running = mapSessionSnapshot(fixture())
   assert.equal(sessionStatus(running), 'running')
   assert.equal(sessionDurations(running, Date.parse(time('12:30'))).work, 106 * 60000)
@@ -38,8 +38,8 @@ test('duration sums raw segments, pauses, running/paused/finished, sleep and tim
   const zoned = fixture('finished')
   zoned.session.started_at = '2026-10-07T12:15:00+02:00'
   assert.deepEqual(sessionDurations(mapSessionSnapshot(zoned)), sessionDurations(finished))
-  assert.equal(formatDuration(100 * 3600000), '100:00:00')
-  assert.equal(formatDuration(-10), '00:00:00')
+  assert.equal(formatDuration(100 * 3600000), '100 t')
+  assert.equal(formatDuration(-10), '0 min')
 })
 
 test('mapping rejects corrupt timestamps, ownership links, overlap and multiple open segments', () => {

@@ -40,7 +40,7 @@ function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData
       <div><dt>Oppgaven i dag</dt><dd>{data.data?.current ? formatDuration(day.work) : total ? formatDuration(total.task_today ?? 0) : error ? 'Utilgjengelig' : 'Henter …'}</dd></div>
       <div><dt>Oppgaven totalt</dt><dd>{total ? formatDuration(total.total) : error ? 'Utilgjengelig' : 'Henter …'}</dd></div>
     </dl>
-    {total && <p className="timer-meta">Totalen ble kontrollert {new Date(total.server_time).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. Pauser teller ikke.</p>}
+    {total && <p className="timer-meta">Totalen ble kontrollert {new Date(total.server_time).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}. Pauser teller ikke.</p>}
     {error && <p className="auth-error" role="alert">{error}</p>}
     <div className="subject-actions"><TaskStart data={data} task={task} />
       <button type="button" className="secondary-button" onClick={onEdit} disabled={!['idle', 'running', 'paused'].includes(data.phase)}>Rediger oppgave</button>

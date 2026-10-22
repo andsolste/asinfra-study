@@ -4,6 +4,7 @@ import type { FlowSnapshot } from './flow-work.ts'
 import { createHistoryApi, mapHistoryEntry } from './study-history.ts'
 import type { HistoryEntry, HistoryEdit } from './study-history.ts'
 import { absoluteTime, invalid, record, uuid } from './flow-statistics.ts'
+import { timestampMicroseconds as micros } from './time-precision.ts'
 
 export type HistoryCursor = { at: string; source: 'flow' | 'legacy-study'; id: string }
 export type FlowHistoryEntry = { key: string; started_at: string } & (
@@ -41,15 +42,16 @@ export function mapFlowHistoryPage(value: unknown): FlowHistoryPage {
 export type TimelinePeriod = { key: string; kind: 'work' | 'pause'; start: string; end: string; areaId: string | null; taskId: string | null; segmentId?: string }
 export function dayTimeline(snapshot: FlowSnapshot): TimelinePeriod[] {
   const periods: TimelinePeriod[] = [], d = snapshot.work_day
-  const end = Math.min(Date.parse(d.ended_at ?? d.cutoff_at), Date.parse(d.cutoff_at), Date.parse(snapshot.server_time))
-  let previous = Date.parse(d.started_at)
+  const earlier = (a: string, b: string) => micros(a) <= micros(b) ? a : b
+  const end = [d.ended_at ?? d.cutoff_at, d.cutoff_at, snapshot.server_time].reduce(earlier)
+  let previous = d.started_at
   for (const s of snapshot.segments) {
-    const start = Date.parse(s.started_at), stop = Math.min(Date.parse(s.ended_at ?? d.cutoff_at), end)
-    if (start > previous) periods.push({ key: 'pause:' + s.id, kind: 'pause', start: new Date(previous).toISOString(), end: s.started_at, areaId: null, taskId: null })
-    if (stop >= start) periods.push({ key: 'work:' + s.id, kind: 'work', start: s.started_at, end: s.ended_at && Date.parse(s.ended_at) <= end ? s.ended_at : new Date(stop).toISOString(), areaId: s.area_id, taskId: s.task_id, segmentId: s.id })
-    previous = Math.max(previous, stop)
+    const start = s.started_at, stop = earlier(s.ended_at ?? d.cutoff_at, end)
+    if (micros(start) > micros(previous)) periods.push({ key: 'pause:' + s.id, kind: 'pause', start: previous, end: start, areaId: null, taskId: null })
+    if (micros(stop) >= micros(start)) periods.push({ key: 'work:' + s.id, kind: 'work', start, end: stop, areaId: s.area_id, taskId: s.task_id, segmentId: s.id })
+    if (micros(stop) > micros(previous)) previous = stop
   }
-  if (snapshot.segments.length && previous < end) periods.push({ key: 'trailing-pause', kind: 'pause', start: new Date(previous).toISOString(), end: new Date(end).toISOString(), areaId: null, taskId: null })
+  if (snapshot.segments.length && micros(previous) < micros(end)) periods.push({ key: 'trailing-pause', kind: 'pause', start: previous, end, areaId: null, taskId: null })
   return periods
 }
 export const nativeHistoryWork = (snapshot: FlowSnapshot) => flowDurations(snapshot, Date.parse(snapshot.server_time)).work

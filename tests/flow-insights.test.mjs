@@ -34,7 +34,7 @@ const history = (kind = 'week', changes = {}) => ({ period: summary(kind).period
   selectedArea: null, area: null, areaStatus: 'ready', areaError: null, mutation: null, timezone: 'UTC', now: () => Date.parse(serverTime), rows: historyRows(),
   status: 'ready', loadingMore: false, notice: '', error: null, listError: null, cursor: null, selectPeriod: noop, selectArea: noop, setTimezone: noop, reload: noop, ...changes })
 
-test('Innsikt presentation preserves periods, sources, errors, seconds and secondary export', { timeout: 30000 }, async t => {
+test('Innsikt presentation preserves periods, sources, errors, completed minutes and secondary export', { timeout: 30000 }, async t => {
   // The app is client-only. Isolate the export data hook for server rendering;
   // browser QA exercises the real hook, requests, cancellation and downloads.
   const exportFixture = {
@@ -54,7 +54,8 @@ test('Innsikt presentation preserves periods, sources, errors, seconds and secon
   await t.test('all four periods put summary and areas before advanced controls, keep exact duration display and text alternatives', () => {
     for (const kind of ['day', 'week', 'month', 'total']) {
       const html = renderStats(history(kind))
-      assert.match(html, /01:00:01/)
+      assert.match(html, />1 t</)
+      assert.doesNotMatch(html, /01:00:01|timer:minutter:sekunder/)
       assert.ok(html.indexOf('Total arbeidstid') < html.indexOf('statistics-areas-title'))
       assert.ok(html.indexOf('statistics-areas-title') < html.indexOf('statistics-figure'))
       assert.ok(html.indexOf('Vis tallgrunnlag') < html.indexOf('Avansert: Tidssoner'))
@@ -67,7 +68,7 @@ test('Innsikt presentation preserves periods, sources, errors, seconds and secon
   await t.test('empty periods retain zero summary/table but no decorative empty chart or legend', () => {
     for (const kind of ['day', 'week', 'month', 'total']) {
       const html = renderStats(history(kind, { statistics: summary(kind, 0) }))
-      assert.match(html, /Ingen registrert arbeidstid i denne perioden/); assert.match(html, /00:00:00/)
+      assert.match(html, /Ingen registrert arbeidstid i denne perioden/); assert.match(html, />0 min</)
       assert.doesNotMatch(html, /<figure|class="statistics-legend"/); assert.match(html, /Vis tallgrunnlag/)
     }
   })
@@ -85,14 +86,14 @@ test('Innsikt presentation preserves periods, sources, errors, seconds and secon
     assert.match(renderStats(history('week', { statisticsStatus: 'error', statisticsError: 'Statistikkfeil', statistics: null })), /Statistikkfeil/)
     assert.match(renderStats(history('week', { selectedArea: { id: area.id }, areaStatus: 'error', areaError: 'Områdefeil' })), /Områdefeil/)
     const html = renderStats(history('week', { timezone: 'invalid', statistics: { ...summary(), legacy_timezone_error: 'invalid-zone' } }))
-    assert.match(html, /Native Flow-data vises fortsatt/); assert.match(html, /01:00:01/); assert.match(html, /Bruk tidssone/)
+    assert.match(html, /Native Flow-data vises fortsatt/); assert.match(html, />1 t</); assert.match(html, /Bruk tidssone/)
   })
   await t.test('work log keeps closed native timelines, explicit pause/work, correction and separate legacy editor/delete without period filtering', () => {
     const html = renderHistory(history())
     assert.match(html, /<h2[^>]*>Arbeidslogg</)
     assert.equal((html.match(/class="history-periods"/g) ?? []).length, 2)
     assert.doesNotMatch(html, /<details[^>]*open=/)
-    assert.match(html, /Arbeidsperiode/); assert.match(html, /Pause · 01:00:00/)
+    assert.match(html, /Arbeidsperiode/); assert.match(html, /Pause · 1 t/)
     assert.match(html, /Korriger tilknytning/); assert.match(html, /Eldre registrering/)
     assert.match(html, /Rediger registrering/); assert.match(html, /Slett registrering/)
     assert.match(html, /Listen er paginert, ikke filtrert etter perioden/)
@@ -114,9 +115,9 @@ test('Innsikt presentation preserves periods, sources, errors, seconds and secon
       assert.doesNotMatch(html, /<details[^>]*open=/)
     }
   })
-  await t.test('report remains a document with table captions, seconds and zero periods without a blank chart', () => {
+  await t.test('report remains a document with table captions, minutes and zero periods without a blank chart', () => {
     const html = renderToStaticMarkup(createElement(Report, { data: summary() }))
-    assert.match(html, /01:00:01/); assert.equal((html.match(/<caption/g) ?? []).length, 3)
+    assert.match(html, />1 t</); assert.equal((html.match(/<caption/g) ?? []).length, 3)
     assert.match(html, /Oppgavebidrag/); assert.match(html, /Flow arbeidsrapport/)
     assert.match(html, /<h2 class="report-title">Arbeidsrapport/)
     const preview = renderToStaticMarkup(createElement(Report, { data: summary(), preview: true }))

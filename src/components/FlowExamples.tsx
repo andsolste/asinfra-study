@@ -7,9 +7,9 @@ export function TimerExample() {
   return <figure className="public-demo public-timer" aria-labelledby="timer-example-caption">
     <figcaption id="timer-example-caption" className="public-example-label">Statisk eksempel · ingen tid registreres</figcaption>
     <div className="panel-heading"><p className="section-label">Arbeid i dag</p><p className="timer-status is-running">Arbeider · eksempel</p></div>
-    <p className="public-demo-clock"><strong className="clock-value">03:18:42</strong><span className="clock-label">Faktisk arbeidstid, uten pauser</span></p>
+    <p className="public-demo-clock"><strong className="clock-value">3 t 18 min</strong><span className="clock-label">Faktisk arbeidstid, uten pauser</span></p>
     <div className="public-demo-activity"><p className="section-label">Jobber med</p><h3>Nettverk</h3><p>Forbered lab</p></div>
-    <dl className="public-period"><div><dt>Nåværende arbeidsperiode</dt><dd>00:37:15</dd></div></dl>
+    <dl className="public-period"><div><dt>Nåværende arbeidsperiode</dt><dd>37 min</dd></div></dl>
     <div className="public-illustrative-controls" aria-hidden="true"><span>Bytt aktivitet</span><span>Pause</span></div>
     <p className="timer-meta">Kontrollene er kun en illustrasjon.</p>
   </figure>
@@ -43,7 +43,7 @@ export function StatisticsExample() {
 export function HistoryExample() {
   return <figure className="public-demo" aria-labelledby="history-example-caption">
     <figcaption id="history-example-caption" className="public-example-label">Statisk eksempel · en tidligere arbeidsdag</figcaption>
-    <div className="panel-heading"><h3>18. oktober</h3><p className="public-history-total">Arbeidstid <strong>02:55:00</strong></p></div>
+    <div className="panel-heading"><h3>18. oktober</h3><p className="public-history-total">Arbeidstid <strong>2 t 55 min</strong></p></div>
     <ol className="public-history-list">
       <li><span>08:35 → 09:42</span><strong>Nettverk</strong></li>
       <li className="public-pause"><span>09:42 → 10:03</span><span>Pause · teller ikke</span></li>

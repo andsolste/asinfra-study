@@ -154,7 +154,7 @@ test('chart scale adapts to seconds, minutes and long work days; all weekday and
     assert.equal(scale.ticks[0], 0); assert.equal(scale.ticks.at(-1), scale.max)
     assert.ok(scale.ticks.length >= 2 && scale.ticks.length <= 6)
   }
-  assert.equal(axisTime(30 * 60000), '30 min'); assert.equal(axisTime(90 * 60000), '1.5 t')
+  assert.equal(axisTime(30 * 60000), '30 min'); assert.equal(axisTime(90 * 60000), '1 t 30 min')
   const week = localDays(localPeriod('week', new Date(2026, 9, 7)))
   assert.equal(week.map((day, i) => dayAxisLabel(day, 'week', i, 7)).length, 7)
   const days = localDays(localPeriod('month', new Date(2026, 1, 7)))

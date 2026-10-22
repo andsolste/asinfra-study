@@ -163,7 +163,7 @@ function preciseEntry() {
   return mapHistoryEntry(row)
 }
 
-test('description/subject edits preserve every original session/segment timestamp despite second-only UI', () => {
+test('description/subject edits preserve every original session/segment timestamp despite minute-only UI', () => {
   const row = preciseEntry(), draft = createHistoryDraft(row)
   const otherSubject = { ...subject, id: otherId, is_archived: true }
   const input = prepareHistoryEdit({ ...draft, subjectId: otherId, description: 'Korrigert tekst' }, [subject, otherSubject])
@@ -173,7 +173,7 @@ test('description/subject edits preserve every original session/segment timestam
   assert.equal(input.endedAt, row.session.ended_at)
   assert.deepEqual(input.segments, row.segments.map(({ started_at, ended_at }) => ({ started_at, ended_at })))
   assert.ok([draft.start, draft.end, ...draft.segments.flatMap(segment => [segment.start, segment.end])]
-    .every(value => !value.includes('.')))
+    .every(value => /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(value)))
 })
 
 test('changing one session/segment field uses whole seconds and leaves all other fields precise', () => {

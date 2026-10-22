@@ -1,4 +1,6 @@
-import { localWeek, weekLabel, workMilliseconds } from './history-time.ts'
+import { localWeek, weekLabel, workMicroseconds } from './history-time.ts'
+import { durationMilliseconds } from './time-precision.ts'
+import { formatDuration } from './duration.ts'
 import type { TimeInterval } from './history-time.ts'
 import type { HistoryEntry } from './study-history.ts'
 
@@ -57,28 +59,27 @@ const subjectOrder = (a: SubjectWork, b: SubjectWork) => b.work - a.work
 export function summarizeStatistics(entries: HistoryEntry[], period: StatisticsPeriod) {
   const days = localDays(period)
   const subjects = new Map<string | null, SubjectWork>()
+  const totals = new Map<string | null, bigint>()
+  let totalWork = 0n
   for (const day of days) {
-    const daily = new Map<string | null, SubjectWork>()
+    const daily = new Map<string | null, bigint>()
     for (const entry of entries) {
-      const work = workMilliseconds(entry.segments, day)
+      const work = workMicroseconds(entry.segments, day)
       if (!work) continue
       const id = entry.session.subject_id
-      const subject = daily.get(id) ?? { id, name: entry.subject?.name ?? 'Annet', code: entry.subject?.code ?? null, work: 0 }
-      subject.work += work
-      daily.set(id, subject)
+      if (!subjects.has(id)) subjects.set(id, { id, name: entry.subject?.name ?? 'Annet', code: entry.subject?.code ?? null, work: 0 })
+      daily.set(id, (daily.get(id) ?? 0n) + work)
+      totals.set(id, (totals.get(id) ?? 0n) + work)
     }
-    day.subjects = [...daily.values()].sort(subjectOrder)
-    day.total = day.subjects.reduce((sum, subject) => sum + subject.work, 0)
-    for (const subject of day.subjects) {
-      const total = subjects.get(subject.id) ?? { ...subject, work: 0 }
-      total.work += subject.work
-      subjects.set(subject.id, total)
-    }
+    day.subjects = [...daily].map(([id, work]) => ({ ...subjects.get(id)!, work: durationMilliseconds(work) })).sort(subjectOrder)
+    const dayWork = [...daily.values()].reduce((sum, work) => sum + work, 0n)
+    day.total = durationMilliseconds(dayWork)
+    totalWork += dayWork
   }
-  const ordered = [...subjects.values()].sort(subjectOrder)
+  const ordered = [...subjects.values()].map(subject => ({ ...subject, work: durationMilliseconds(totals.get(subject.id)!) })).sort(subjectOrder)
   // Strictly greater preserves the first (earliest) day in a tie. Empty periods have no winner.
   const busiestDay = days.reduce<DayWork | null>((best, day) => day.total > (best?.total ?? 0) ? day : best, null)
-  return { days, subjects: ordered, total: days.reduce((sum, day) => sum + day.total, 0),
+  return { days, subjects: ordered, total: durationMilliseconds(totalWork),
     mostStudied: ordered[0] ?? null, busiestDay }
 }
 export type StatisticsSummary = ReturnType<typeof summarizeStatistics>
@@ -105,8 +106,7 @@ export function chartScale(maximum: number) {
 }
 
 export function axisTime(milliseconds: number) {
-  const minutes = milliseconds / 60000
-  return minutes >= 60 ? `${Number((minutes / 60).toFixed(2))} t` : `${minutes} min`
+  return formatDuration(milliseconds)
 }
 
 export function dayAxisLabel(day: DayWork, kind: PeriodKind, index: number, count: number) {
