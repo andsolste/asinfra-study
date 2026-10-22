@@ -39,10 +39,10 @@ export function mapHistoryPage(value: unknown) {
 export function createHistoryDraft(entry: HistoryEntry): HistoryDraft {
   return {
     subjectId: entry.session.subject_id ?? '', description: entry.session.description,
-    start: toLocalDateTime(entry.session.started_at), end: toLocalDateTime(entry.session.ended_at),
+    start: toLocalDateTime(entry.session.started_at).slice(0, 16), end: toLocalDateTime(entry.session.ended_at).slice(0, 16),
     originalStart: entry.session.started_at, originalEnd: entry.session.ended_at,
     segments: entry.segments.map(segment => ({ key: segment.id,
-      start: toLocalDateTime(segment.started_at), end: toLocalDateTime(segment.ended_at),
+      start: toLocalDateTime(segment.started_at).slice(0, 16), end: toLocalDateTime(segment.ended_at).slice(0, 16),
       originalStart: segment.started_at, originalEnd: segment.ended_at })),
   }
 }

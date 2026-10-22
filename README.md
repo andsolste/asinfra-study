@@ -155,9 +155,24 @@ CSV for videre analyse og rapport for visning/utskrift/PDF er skilt tydelig.
 Avansert datagrunnlagsinformasjon er kollapset. Eksport-store, frosset grunnlag,
 cursor-validering, avbrudd/discard, CSV-sikkerhet og print-portalen er uendret.
 
-**Avgrensning mot #30:** Denne fasen endrer ikke timer, pause-/arbeidstidssemantikk,
-04:00, `formatDuration()`, sekundvisning, CSV-kolonner eller tidsstempelpresisjon.
-En eventuell konsistent endring til minuttvisning hører til #30 etter #27.
+### Arbeidstid og minuttvisning (#30)
+
+Flow arbeidstid er summen av faktiske arbeidssegmenter. Pauser og gap teller ikke.
+UI viser fullførte hele minutter, f.eks. `0 min`, `42 min` og `1 t 5 min`.
+Gulving skjer først etter at presis varighet er aggregert, ikke per segment.
+Derfor kan en total avvike fra summen av de viste, gulvede rad-minuttene.
+
+`time-precision.ts` parser absolutte ISO-timestamps til eksakte mikrosekunder
+(`bigint`). Differanser, klipping og summering beholder denne presisjonen;
+ved grensen til eksisterende Number-API-er gulves **aggregatet** til hele
+millisekunder. Det gjør aldri 59 999 999 µs til 60 000 ms. Legacy-sammendrag
+summerer også mikrosekunder på tvers av økter/områder/dager før konvertering.
+Rå timestamps endres ikke. UI bruker én minuttformatter med en presis BigInt-
+adapter for CSV. Statistikkens RPC-verdier og skala beholdes uendret.
+
+Vanlige klokkeslett vises uten sekunder. Intern sekundtick, serverankret nåtid,
+cutoff og recovery beholdes. Elapsed brukes fortsatt internt til pauseberegning,
+men «Total klokketid» vises ikke i normale dagsdetaljer.
 
 ## Arkitektur og repoansvar
 
@@ -189,10 +204,10 @@ ikke en database-rad. Eksisterende aktive oppgaver kan velges, også uten områd
 
 Hovedtiden summerer dagens segmenter uten gap/pauser; nåværende periode vises
 separat. Server_time + en monotont målt tidsdifferanse driver visningen, alltid
-klippet til cutoff. Dagsdetaljer viser arbeid, start, klokketid, pause og segmenter.
+klippet til cutoff. Dagsdetaljer viser arbeid, start, cutoff, pause og segmenter.
 Ingen vanlig Stopp-knapp finnes: Pause er nok.
 Ved cutoff kan sist avsluttede dag i denne fanen fortsatt sees i dagsdetaljer,
-med serverbekreftet ended_at; hovedtiden er likevel 00:00:00 uten aktiv dag.
+med serverbekreftet ended_at; hovedtiden er likevel 0 min uten aktiv dag.
 Denne lokale detaljreferansen lagres ikke over logout/fresh reload. Avsluttede
 native dager finnes også i den samlede Flow-historikken beskrevet nedenfor.
 
@@ -361,8 +376,10 @@ Oppgavestatus, Oppgavefrist, Beskrivelse**.
 - `Annet` for null område, `Uten oppgave` for native uten task og
   `Uten oppgave / eldre registrering` for legacy. Ingen description→task matching.
   Arkiverte områder/fullførte tasks beholdes. UUID-er, e-post og Auth-data utelates.
-- Varigheter summeres med heltallsmikrosekunder (`BigInt`). Numeriske sekunder
-  beholder opptil seks desimaler; `HH:MM:SS` er bare visning med hele sekunder.
+- Varigheter summeres med heltallsmikrosekunder (`BigInt`). «Arbeidstid» er nå
+  menneskelesbar minutttekst, ikke det tidligere `HH:MM:SS`-formatet.
+  «Arbeidstid sekunder» beholder presis maskinlesbar verdi med opptil seks desimaler.
+  ISO-timestamps, RPC-feltet `work_microseconds` og kolonnerekkefølgen er uendret.
   Filnavn: `flow-YYYY-MM-DD.csv`, `flow-2026-10-19_til_2026-10-25.csv`, `flow-YYYY-MM.csv`
   eller `flow-total.csv`, uten kontoopplysninger. Tom eksport gir bare header.
 - `csvText` nøytraliserer potensielle formler, også etter whitespace/kontrolltegn
@@ -443,8 +460,8 @@ uke viser syv stablede dagsstolper, måned viser alle kalenderdagene. Månedsdia
 ruller internt på mobil. Y-aksen tilpasses dataene; null-dager beholdes. Område-ID
 bestemmer farge og tekstur stabilt på tvers av perioder; teksturer skiller mange
 fargekollisjoner, og «Annet» er nøytral. Områdelisten og «Vis tallgrunnlag» viser
-tid som `HH:MM:SS`, uten krav om hover eller fargesyn. Beregningen beholder
-millisekundene frem til visning. Like travle dager avgjøres med tidligste dato.
+tid i fullførte minutter, uten krav om hover eller fargesyn. Beregningen bruker
+råverdier frem til presentasjon. Like travle dager avgjøres med tidligste dato.
 
 Legacy-sletting bruker fortsatt `study_session_history_delete`. De tidligere
 read/edit-RPC-ene beholdes for gamle klienter. Den bevarte legacy timerkoden bruker
@@ -452,10 +469,10 @@ read/edit-RPC-ene beholdes for gamle klienter. Den bevarte legacy timerkoden bru
 Responsene valideres i frontend; RLS, constraints og
 RPC-er i canonical backend er sikkerhetsgrensen og begrenser data til `auth.uid()`.
 
-Redigering viser lokal tid med **hele sekunder** (`step="1"`). Et felt som fortsatt
-matcher de viste sekundene i originalen, sender det opprinnelige absolutte
-tidsstempelet uendret, inkludert milli-/mikrosekunder. Endrede felt konverteres
-til ISO med sekundpresisjon, uten manuell offsetforskyvning. Tidspunkter som ikke
+Redigering viser lokal tid med **hele minutter** (`step="60"`). Et felt som fortsatt
+matcher det viste minuttet i originalen, sender det opprinnelige absolutte
+tidsstempelet uendret, inkludert sekunder/mikrosekunder. Et faktisk endret minutt
+konverteres til ISO med `:00` sekunder, uten manuell offsetforskyvning. Tidspunkter som ikke
 finnes ved tidsomstilling, og nye tvetydige klokkeslett, avvises. Uendrede felt i
 en gjentatt time beholder den opprinnelige forekomsten.
 
@@ -515,7 +532,7 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
 2. Test login, reload av innlogging og logout.
 3. Kontroller Flow-branding, eksisterende egne områder og historiske økter.
 4. Opprett/rediger/arkiver et testområde og aktiver det igjen.
-5. Åpne uten aktiv Flow-dag: 00:00:00, ingen ny rad før aktivitet velges. Åpne/lukk picker uten å starte.
+5. Åpne uten aktiv Flow-dag: 0 min, ingen ny rad før aktivitet velges. Åpne/lukk picker uten å starte.
 6. Velg Annet: første aktivitet starter dagen. Kontroller eventuell gammel økts cutover i legacy historikk.
 7. Velg dag/uke/måned/totalt og forrige/neste/gjeldende periode; kontroller diagram,
    total, områdeliste og tallgrunnlag, også segmenter over midnatt og periodegrenser.
@@ -530,7 +547,7 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
     økter, historikk og statistikk; bytte av konto må ikke vise forrige brukers data.
 13. Pause/Fortsett på samme Flow-dag; pauser teller ikke, Fortsett åpner nytt segment.
 14. Bytt til område og deretter oppgave/Annet: dagstotal fortsetter, periodetid nullstilles uten kunstig gap.
-15. Refresh både running og paused. Dagsdetaljer: arbeid, start, klokketid, pause og segmenter stemmer.
+15. Refresh både running og paused. Dagsdetaljer: arbeid, start, cutoff, pause og segmenter stemmer.
 16. To Flow-faner: stale pause/resume/bytte må ikke overta nyere aktivitet. Gammel legacy-fane kan ikke starte/resume etter cutover.
 17. Bruk eksisterende og nyopprettet område; arkiver siste aktivitet og trykk Fortsett: gyldig nytt valg kreves. Historiske segmenter består.
 18. Kontroller cutoff, sleep/reload/focus/reconnect: dagen lukkes ved lagret 04:00, og ny aktivitet starter ikke automatisk. Ny dag bruker korrekt zone/DST.

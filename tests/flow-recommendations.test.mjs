@@ -156,5 +156,5 @@ test('real Work components render Next/Later/actions and put the current period 
   const invalid = renderToStaticMarkup(createElement(Timer, { data: workspace('paused', snapshot(id(1), id(102), true), [task(1, null, id(102)), task(2)]), organizationVersion: [], onCutover: () => {} }))
   assert.match(invalid, />Siste aktivitet</); assert.match(invalid, /Velg ny aktivitet/); assert.doesNotMatch(invalid, />Fortsett</)
   const paused = renderToStaticMarkup(createElement(Timer, { data: workspace('paused', snapshot(id(1), id(100), true)), organizationVersion: [], onCutover: () => {} }))
-  assert.match(paused, /Nå · pauset/); assert.match(paused, /01:00:00/); assert.match(paused, /siste arbeidsperiode/)
+  assert.match(paused, /Nå · pauset/); assert.match(paused, />1 t</); assert.match(paused, /siste arbeidsperiode/)
 })

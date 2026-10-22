@@ -33,7 +33,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
   const activeAreas = data.catalog.areas.filter(a => !a.is_archived)
   const tasks = data.catalog.tasks.filter(t => t.status === 'active' && t.area_id === (areaId || null))
   const local = (timestamp: string) => new Date(timestamp).toLocaleString(undefined, {
-    timeZone: detailDay?.work_day.timezone, dateStyle: 'short', timeStyle: 'medium',
+    timeZone: detailDay?.work_day.timezone, dateStyle: 'short', timeStyle: 'short',
   })
   useEffect(() => { void data.reload() }, [organizationVersion, data.reload])
   useEffect(() => { if (!active && !busy) setPanel(null) }, [active, busy])
@@ -127,7 +127,6 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
           <p className="timer-meta">Dagen avsluttes ved {local(detailDay.work_day.cutoff_at)}. Pause er nok når du er ferdig for nå.</p>
           <dl className="flow-day-metrics"><div><dt>Faktisk arbeidstid</dt><dd>{formatDuration(detailTotals.work)}</dd></div>
             <div><dt>Dagen startet</dt><dd>{local(detailDay.work_day.started_at)}</dd></div>
-            <div><dt>Total klokketid</dt><dd>{formatDuration(detailTotals.elapsed)}</dd></div>
             <div><dt>Pause</dt><dd>{formatDuration(detailTotals.pause)}</dd></div></dl>
           <h3>Arbeidsperioder</h3><p className="timer-meta">Gap mellom arbeidsperiodene er pauser. Tiden før første aktivitet teller ikke.</p>
           <ol className="flow-period-list">{detailDay.segments.map(s => {
@@ -135,7 +134,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
             return <li key={s.id}><p><time dateTime={s.started_at}>{local(s.started_at)}</time> → {s.ended_at ? <time dateTime={s.ended_at}>{local(s.ended_at)}</time> : 'Pågår'}</p>
               <strong>{label.area}</strong>{s.task_id && <p>{label.task}</p>}</li>
           })}</ol>
-        </> : <p>Ingen aktiv Flow-dag. Arbeid i dag er 00:00:00. En ny dag opprettes først når du begynner å arbeide.</p>}
+        </> : <p>Ingen aktiv Flow-dag. Arbeid i dag er 0 min. En ny dag opprettes først når du begynner å arbeide.</p>}
       </div>}
     </DetailPanel>
   </>

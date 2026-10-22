@@ -3,6 +3,7 @@ import type { FlowTask } from '../types/flow.ts'
 import { fromLocalDateTime, toLocalDateTime } from './history-time.ts'
 import { mapFlowTask } from './flow-work.ts'
 import type { FlowSnapshot } from './flow-work.ts'
+import { timestampMicroseconds as micros, serverClockMicroseconds, minMicroseconds, durationMilliseconds, segmentMicroseconds } from './time-precision.ts'
 
 export type TaskFields = { title: string; description: string; areaId: string | null; deadline: string | null }
 export type TaskCommand =
@@ -53,13 +54,14 @@ export function deadlineLabel(task: FlowTask, now: number) {
 }
 export function taskDayTime(snapshot: FlowSnapshot | null, taskId: string, now: number) {
   if (!snapshot) return { work: 0, current: 0 }
-  const end = Math.min(now, Date.parse(snapshot.work_day.cutoff_at), snapshot.work_day.ended_at ? Date.parse(snapshot.work_day.ended_at) : Infinity)
-  let work = 0, current = 0
+  const clock = serverClockMicroseconds(now, snapshot.server_time)
+  const end = minMicroseconds(clock, micros(snapshot.work_day.cutoff_at), snapshot.work_day.ended_at ? micros(snapshot.work_day.ended_at) : clock)
+  let work = 0n, current = 0n
   for (const s of snapshot.segments.filter(s => s.task_id === taskId)) {
-    const duration = Math.max(0, Math.min(end, s.ended_at ? Date.parse(s.ended_at) : end) - Date.parse(s.started_at))
+    const duration = segmentMicroseconds(s, end)
     work += duration; if (s.ended_at === null) current = duration
   }
-  return { work, current }
+  return { work: durationMilliseconds(work), current: durationMilliseconds(current) }
 }
 export function taskApplied(command: TaskCommand, tasks: readonly FlowTask[]) {
   const task = tasks.find(t => t.id === command.taskId)

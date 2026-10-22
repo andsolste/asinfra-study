@@ -33,7 +33,7 @@ export function StatisticsLegend({ subjects, onArea, showArchived = false }: { s
     </li>)}</ul>
 }
 
-export default function StatisticsChart({ summary, period, description = 'Faktisk arbeidstid ved siste serverkontroll, uten pauser. Datoer er logiske Flow-datoer. Områder og eksakt tid finnes i områdelisten og under Vis tallgrunnlag.' }: {
+export default function StatisticsChart({ summary, period, description = 'Faktisk arbeidstid ved siste serverkontroll, uten pauser. Datoer er logiske Flow-datoer. Arbeidstid i fullførte minutter finnes i områdelisten og under Vis tallgrunnlag.' }: {
   summary: StatisticsSummary; period: StatisticsPeriod; description?: string
 }) {
   const prefix = useId()
@@ -100,7 +100,7 @@ export function StatisticsTable({ summary, period }: { summary: StatisticsSummar
   return <details className="statistics-data"><summary>Vis tallgrunnlag</summary>
     <div className="statistics-table-scroll" tabIndex={0} role="region" aria-label="Tallgrunnlag, rullbart ved behov">
       <table>
-        <caption>Faktisk arbeidstid · logiske Flow-datoer · timer:minutter:sekunder</caption>
+        <caption>Faktisk arbeidstid · logiske Flow-datoer · fullførte minutter</caption>
         {period.kind === 'day' || period.kind === 'total' ? <>
           <thead><tr><th scope="col">Område</th><th scope="col">Arbeidstid</th></tr></thead>
           <tbody>{summary.areas.map(subject => <tr key={key(subject)}><th scope="row">{subjectLabel(subject)}</th><td>{formatDuration(subject.work)}</td></tr>)}</tbody>

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { mapSubject } from './subjects.ts'
 import type { Subject } from './subjects.ts'
+import { timestampMicroseconds, serverClockMicroseconds, positiveMicroseconds, durationMilliseconds, segmentMicroseconds } from './time-precision.ts'
+export { formatDuration } from './duration.ts'
 
 export type WorkSegment = { id: string; session_id: string; started_at: string; ended_at: string | null }
 export type StudySession = { id: string; subject_id: string | null; description: string; started_at: string; ended_at: string | null }
@@ -72,16 +74,10 @@ export function sessionStatus(snapshot: SessionSnapshot) {
     : snapshot.segments.some(segment => segment.ended_at === null) ? 'running' : 'paused'
 }
 export function sessionDurations(snapshot: SessionSnapshot, now = Date.now()) {
-  const end = snapshot.session.ended_at ? Date.parse(snapshot.session.ended_at) : now
-  const elapsed = Math.max(0, end - Date.parse(snapshot.session.started_at))
-  const work = snapshot.segments.reduce((total, segment) => total + Math.max(0,
-    (segment.ended_at ? Date.parse(segment.ended_at) : end) - Date.parse(segment.started_at)), 0)
-  return { work, elapsed, pause: Math.max(0, elapsed - work) }
-}
-export function formatDuration(milliseconds: number) {
-  const seconds = Math.floor(Math.max(0, milliseconds) / 1000)
-  return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
-    .map(value => String(value).padStart(2, '0')).join(':')
+  const end = snapshot.session.ended_at ? timestampMicroseconds(snapshot.session.ended_at) : serverClockMicroseconds(now, snapshot.server_time)
+  const elapsed = positiveMicroseconds(end - timestampMicroseconds(snapshot.session.started_at))
+  const work = snapshot.segments.reduce((total, segment) => total + segmentMicroseconds(segment, end), 0n)
+  return { work: durationMilliseconds(work), elapsed: durationMilliseconds(elapsed), pause: durationMilliseconds(elapsed - work) }
 }
 export function validateSessionInput(subjectId: string, description: string, subjects: Subject[]) {
   if (!subjects.some(subject => subject.id === subjectId && !subject.is_archived)) throw new Error('Velg et aktivt område.')

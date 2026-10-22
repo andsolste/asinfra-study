@@ -37,7 +37,7 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
           <span>{c.task_id ? c.title ?? 'Utilgjengelig oppgave' : c.source === 'legacy-study' ? 'Uten oppgave / eldre registrering' : 'Uten oppgave'}{c.status === 'completed' && <small> · Fullført</small>}</span><strong>{formatDuration(c.work)}</strong>
         </li>)}</ul>
         {!data.area.total.total && <p>Ingen registrert arbeidstid i dette området.</p>}
-        <p className="timer-meta">Kontrollert {new Date(data.area.total.server_time).toLocaleTimeString('nb-NO')}. Pauser teller ikke.</p>
+        <p className="timer-meta">Kontrollert {new Date(data.area.total.server_time).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}. Pauser teller ikke.</p>
         <button type="button" className="text-button" onClick={() => area(activeArea.id)}>Oppdater område</button>
       </>}
     </> : <>
@@ -61,7 +61,7 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
           <p className="timer-meta">Velg et område for summer og oppgavebidrag.</p><StatisticsLegend subjects={totals.areas} onArea={id => area(id)} showArchived /></section>}
         {totals.total > 0 && <StatisticsChart summary={totals} period={period} />}
         <StatisticsTable summary={totals} period={period} />
-        <p className="timer-meta">Inkluderer pågående arbeid ved serverkontroll {new Date(totals.server_time).toLocaleTimeString('nb-NO')}. Hent på nytt for oppdatert tid.</p>
+        <p className="timer-meta">Inkluderer pågående arbeid ved serverkontroll {new Date(totals.server_time).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}. Hent på nytt for oppdatert tid.</p>
       </>}
       <button type="button" className="text-button statistics-refresh" disabled={busy || data.statisticsStatus === 'loading'} onClick={() => void data.selectPeriod(period)}>Hent statistikk på nytt</button>
     </>}

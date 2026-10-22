@@ -8,10 +8,11 @@ import { dayTimeline, nativeHistoryWork } from '../lib/flow-history'
 import type { FlowHistoryEntry } from '../lib/flow-history'
 import type { FlowWorkSegment } from '../types/flow'
 import { formatDuration } from '../lib/study-sessions'
+import { durationMilliseconds, timestampMicroseconds } from '../lib/time-precision'
 import { workMilliseconds } from '../lib/history-time'
 import HistoryForm from './HistoryForm'
 
-const localTime = (iso: string, zone?: string) => new Date(iso).toLocaleString('nb-NO', { timeZone: zone, dateStyle: 'short', timeStyle: 'medium' })
+const localTime = (iso: string, zone?: string) => new Date(iso).toLocaleString('nb-NO', { timeZone: zone, dateStyle: 'short', timeStyle: 'short' })
 function dayAreas(segments: readonly FlowWorkSegment[], catalog: FlowCatalog) {
   const names = [...new Set(segments.map(s => s.area_id))].map(areaId => activityName({ areaId, taskId: null }, catalog).area)
   return names.slice(0, 2).join(' · ') + (names.length > 2 ? ` · +${names.length - 2} andre` : '')
@@ -86,7 +87,7 @@ export default function FlowHistory({ data, subjects, catalog }: { data: FlowHis
             const original = entry.snapshot.segments.find(s => s.id === period.segmentId)
             return <li key={period.key} className={period.kind === 'pause' ? 'is-pause' : ''}>
               <p><time dateTime={period.start}>{localTime(period.start, entry.snapshot.work_day.timezone)}</time> → <time dateTime={period.end}>{localTime(period.end, entry.snapshot.work_day.timezone)}</time></p>
-              {period.kind === 'pause' ? <span>Pause · {formatDuration(Date.parse(period.end) - Date.parse(period.start))}</span> : <><span className="history-period-kind">Arbeidsperiode</span><strong>{labels.area}</strong><p>{period.taskId ? labels.task : 'Uten oppgave'}</p>
+              {period.kind === 'pause' ? <span>Pause · {formatDuration(durationMilliseconds(timestampMicroseconds(period.end) - timestampMicroseconds(period.start)))}</span> : <><span className="history-period-kind">Arbeidsperiode</span><strong>{labels.area}</strong><p>{period.taskId ? labels.task : 'Uten oppgave'}</p>
                 {original && <button type="button" className="text-button" disabled={disabled || !!editing || !!segment}
                   aria-label={`Korriger tilknytning for ${localTime(period.start, entry.snapshot.work_day.timezone)}`}
                   onClick={event => { editorOpener.current = event.currentTarget; editorRow.current = entry.key; setSegment({ key: entry.key, value: original }) }}>Korriger tilknytning</button>}

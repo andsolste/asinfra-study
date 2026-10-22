@@ -1,4 +1,5 @@
 import type { WorkSegment } from './study-sessions.ts'
+import { timestampMicroseconds, durationMilliseconds, segmentMicroseconds } from './time-precision.ts'
 
 export type TimeInterval = { from: string; to: string }
 
@@ -24,10 +25,13 @@ export function weekLabel(week: TimeInterval) {
 }
 
 export function workMilliseconds(segments: WorkSegment[], interval?: TimeInterval) {
-  const from = interval ? Date.parse(interval.from) : -Infinity
-  const to = interval ? Date.parse(interval.to) : Infinity
-  return segments.reduce((sum, segment) => sum + (segment.ended_at === null ? 0 : Math.max(0,
-    Math.min(Date.parse(segment.ended_at), to) - Math.max(Date.parse(segment.started_at), from))), 0)
+  return durationMilliseconds(workMicroseconds(segments, interval))
+}
+export function workMicroseconds(segments: WorkSegment[], interval?: TimeInterval): bigint {
+  const from = interval ? timestampMicroseconds(interval.from) : undefined
+  const to = interval ? timestampMicroseconds(interval.to) : undefined
+  return segments.reduce((sum, segment) => sum + (segment.ended_at === null ? 0n
+    : segmentMicroseconds(segment, to ?? timestampMicroseconds(segment.ended_at), from)), 0n)
 }
 
 const pad = (value: number, width = 2) => String(value).padStart(width, '0')
@@ -51,9 +55,10 @@ export function fromLocalDateTime(value: string, original?: string) {
     throw new Error('Tidspunktet finnes ikke i din lokale tidssone. Kontroller dato og klokkeslett.')
   }
   const normalized = toLocalDateTime(date.toISOString())
-  // Compare displayed seconds, but return the original absolute timestamp verbatim.
-  // This preserves subsecond precision AND the occurrence in a repeated DST hour.
-  if (original && toLocalDateTime(original) === normalized) return original
+  // Compare only the precision actually shown by the editor. An untouched
+  // minute field must retain its original seconds/microseconds AND DST occurrence.
+  if (original && (match[6] === undefined ? toLocalDateTime(original).slice(0, 16) === value
+    : toLocalDateTime(original) === normalized)) return original
   const offsets = new Set([-86400000, 86400000].map(delta => new Date(date.getTime() + delta).getTimezoneOffset()))
   for (const offset of offsets) {
     const alternative = new Date(date.getTime() + (offset - date.getTimezoneOffset()) * 60000)

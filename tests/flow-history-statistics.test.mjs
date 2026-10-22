@@ -107,12 +107,12 @@ test('native timeline includes gaps and trailing pause, never boundary-to-first 
   const snapshot=mapFlowHistoryPage(page()).rows[0].snapshot,periods=dayTimeline(snapshot)
   assert.deepEqual(periods.map(p=>p.kind),['work','work','pause','work','pause'])
   assert.equal(periods[0].start,snapshot.work_day.started_at)
-  assert.equal(periods[2].start,'2026-10-19T01:00:00.000Z');assert.equal(periods[2].end,'2026-10-19T01:30:00Z')
-  assert.equal(periods.at(-1).end,'2026-10-19T04:00:00.000Z')
+  assert.equal(periods[2].start,snapshot.segments[1].ended_at);assert.equal(periods[2].end,'2026-10-19T01:30:00Z')
+  assert.equal(periods.at(-1).end,snapshot.work_day.cutoff_at)
   assert.equal(nativeHistoryWork(snapshot),150*60000)
   assert.equal(taskDayTime(snapshot,id(90),Date.parse(server)).work,90*60000)
   const expired=native();expired.snapshot.work_day.ended_at=null;expired.snapshot.segments.at(-1).ended_at=null
-  assert.equal(dayTimeline(mapFlowHistoryPage(page([expired])).rows[0].snapshot).at(-1).end,'2026-10-19T04:00:00.000Z')
+  assert.equal(dayTimeline(mapFlowHistoryPage(page([expired])).rows[0].snapshot).at(-1).end,expired.snapshot.work_day.cutoff_at)
   const running=native();running.snapshot.work_day.cutoff_at='2026-10-20T04:00:00Z';running.snapshot.work_day.ended_at=null
   assert.throws(()=>mapFlowHistoryPage(page([running])))
 })

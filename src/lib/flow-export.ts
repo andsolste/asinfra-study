@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { absoluteTime, addDays, invalid, logicalDate, mapFlowStatistics, optionalId, periodDates, record, uuid, validZone } from './flow-statistics.ts'
 import type { FlowPeriod, FlowStatistics } from './flow-statistics.ts'
+import { timestampMicroseconds } from './time-precision.ts'
+import { formatMicrosecondDuration } from './duration.ts'
+export { timestampMicroseconds } from './time-precision.ts'
 
 export type ExportRow = {
   source: 'flow' | 'legacy-study'; segment_id: string; ordinal: number; flow_date: string; timezone: string
@@ -16,11 +19,6 @@ export type ExportPage = {
 const text = (value: unknown): string => { if (typeof value !== 'string') throw invalid(); return value }
 const optionalText = (value: unknown) => value === null ? null : text(value)
 const integer = (value: unknown): number => { if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw invalid(); return value }
-export function timestampMicroseconds(value: string) {
-  absoluteTime(value)
-  const fraction = /\.(\d{1,6})/.exec(value)?.[1] ?? ''
-  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, '0').slice(3))
-}
 export function mapExportPage(value: unknown): ExportPage {
   const data = record(value), p = record(data.period)
   const period: ExportPage['period'] = { kind: p.kind as FlowPeriod['kind'], anchor: p.anchor === null ? null : logicalDate(p.anchor),
@@ -74,8 +72,7 @@ export function durationSeconds(microseconds: bigint) {
   return String(microseconds / 1000000n) + (fraction ? '.' + fraction : '')
 }
 export function durationClock(microseconds: bigint) {
-  const seconds = microseconds / 1000000n
-  return [seconds / 3600n, seconds / 60n % 60n, seconds % 60n].map(n => String(n).padStart(2, '0')).join(':')
+  return formatMicrosecondDuration(microseconds)
 }
 export function csvRow(r: ExportRow): string {
   const work = BigInt(r.work_microseconds)

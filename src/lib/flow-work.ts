@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FlowArea, FlowTask, FlowWorkDay, FlowWorkSegment } from '../types/flow.ts'
 import { createTaskApi } from './flow-tasks.ts'
+import { timestampMicroseconds as micros, serverClockMicroseconds, minMicroseconds, positiveMicroseconds, durationMilliseconds as milliseconds, segmentMicroseconds } from './time-precision.ts'
 
 export type FlowActivity = { areaId: string | null; taskId: string | null }
 export type FlowSnapshot = { work_day: FlowWorkDay; segments: FlowWorkSegment[]; server_time: string }
@@ -97,11 +98,11 @@ export function mapFlowState(value: unknown): FlowState {
   return { current, server_time: server, next_boundary_at: boundary, next_cutoff_at: cutoff, legacy_active: source.legacy_active }
 }
 export function flowDurations(snapshot: FlowSnapshot, serverNow: number) {
-  const d = snapshot.work_day, end = Math.min(Date.parse(d.cutoff_at), d.ended_at ? Date.parse(d.ended_at) : serverNow)
-  const work = snapshot.segments.reduce((sum, s) => sum + Math.max(0, Math.min(end, s.ended_at ? Date.parse(s.ended_at) : end) - Date.parse(s.started_at)), 0)
-  const elapsed = Math.max(0, end - Date.parse(d.started_at))
+  const d = snapshot.work_day, end = minMicroseconds(micros(d.cutoff_at), d.ended_at ? micros(d.ended_at) : serverClockMicroseconds(serverNow, snapshot.server_time))
+  const work = snapshot.segments.reduce((sum, s) => sum + segmentMicroseconds(s, end), 0n)
+  const elapsed = positiveMicroseconds(end - micros(d.started_at))
   const open = snapshot.segments.find(s => s.ended_at === null)
-  return { work, elapsed, pause: Math.max(0, elapsed - work), current: open ? Math.max(0, end - Date.parse(open.started_at)) : 0 }
+  return { work: milliseconds(work), elapsed: milliseconds(elapsed), pause: milliseconds(elapsed - work), current: open ? milliseconds(segmentMicroseconds(open, end)) : 0 }
 }
 export function activityUsable(activity: FlowActivity, catalog: FlowCatalog): boolean {
   if (activity.areaId !== null && !catalog.areas.some(a => a.id === activity.areaId && !a.is_archived)) return false
