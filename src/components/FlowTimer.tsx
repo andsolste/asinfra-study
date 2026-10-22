@@ -7,8 +7,8 @@ import { formatDuration } from '../lib/study-sessions'
 import DetailPanel from './DetailPanel'
 import FlowFeedback from './FlowFeedback'
 
-export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus }: {
-  data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void; active?: boolean; fallbackFocus?: HTMLElement | null
+export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus, mutationBusy = false }: {
+  data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void; active?: boolean; fallbackFocus?: HTMLElement | null; mutationBusy?: boolean
 }) {
   const current = data.data?.current ?? null
   const open = current?.segments.find(s => s.ended_at === null)
@@ -22,7 +22,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
   const detailDay = current ?? data.closed
   const detailTotals = detailDay ? flowDurations(detailDay, serverNow) : totals
   const busy = data.phase === 'loading' || data.phase === 'recovering'
-  const disabled = busy || data.phase === 'error'
+  const disabled = busy || data.phase === 'error' || mutationBusy
   const [panel, setPanel] = useState<'activity' | 'day' | null>(null)
   const [areaId, setAreaId] = useState('')
   const [taskId, setTaskId] = useState('')

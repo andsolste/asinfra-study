@@ -72,20 +72,22 @@ export function mapFlowSnapshot(value: unknown): FlowSnapshot | null {
   const day: FlowWorkDay = { id: id(d.id), logical_date: d.logical_date, timezone: d.timezone,
     boundary_at: timestamp(d.boundary_at), cutoff_at: timestamp(d.cutoff_at), started_at: timestamp(d.started_at),
     ended_at: optionalTime(d.ended_at), created_at: timestamp(d.created_at) }
-  const start = Date.parse(day.started_at), cutoff = Date.parse(day.cutoff_at), end = day.ended_at ? Date.parse(day.ended_at) : cutoff
-  if (Date.parse(day.boundary_at) > start || start >= cutoff || end < start || end > cutoff || !Array.isArray(source.segments)) throw invalid()
+  const start = micros(day.started_at), cutoff = micros(day.cutoff_at), end = day.ended_at ? micros(day.ended_at) : cutoff
+  if (micros(day.boundary_at) > start || start >= cutoff || end < start || end > cutoff || !Array.isArray(source.segments)) throw invalid()
   const segments = source.segments.map(value => {
     const s = row(value)
     return { id: id(s.id), work_day_id: id(s.work_day_id), area_id: optionalId(s.area_id), task_id: optionalId(s.task_id),
       started_at: timestamp(s.started_at), ended_at: optionalTime(s.ended_at), created_at: timestamp(s.created_at) }
-  }).sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at) || Number(a.ended_at === null) - Number(b.ended_at === null) || a.id.localeCompare(b.id))
+  }).sort((a, b) => { const difference = micros(a.started_at) - micros(b.started_at)
+    return (difference < 0n ? -1 : difference > 0n ? 1 : 0) || Number(a.ended_at === null) - Number(b.ended_at === null) || a.id.localeCompare(b.id) })
   let previousEnd = start
   const seen = new Set<string>()
   for (const s of segments) {
-    const from = Date.parse(s.started_at), to = s.ended_at ? Date.parse(s.ended_at) : Infinity
-    if (seen.has(s.id) || s.work_day_id !== day.id || from < previousEnd || from >= cutoff || to < from
-      || (s.ended_at !== null && to > end) || (s.ended_at === null && day.ended_at !== null)) throw invalid()
-    seen.add(s.id); previousEnd = to
+    const exactFrom = micros(s.started_at), exactTo = s.ended_at === null ? null : micros(s.ended_at)
+    const empty = exactTo === exactFrom
+    if (seen.has(s.id) || s.work_day_id !== day.id || exactFrom < start || (!empty && exactFrom < previousEnd) || exactFrom >= cutoff
+      || (exactTo !== null && (exactTo < exactFrom || exactTo > end)) || (exactTo === null && day.ended_at !== null)) throw invalid()
+    seen.add(s.id); if (!empty) previousEnd = exactTo ?? cutoff
   }
   return { work_day: day, segments, server_time: timestamp(source.server_time) }
 }

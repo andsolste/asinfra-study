@@ -10,5 +10,6 @@ export function useFlowHistory() {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
   useEffect(() => { store.connect(); return () => store.disconnect() }, [store])
   return { ...state, now: store.now, reload: store.refresh, more: store.more, selectPeriod: store.selectPeriod,
-    selectArea: store.selectArea, setTimezone: store.setTimezone, editLegacy: store.editLegacy, removeLegacy: store.removeLegacy, attribute: store.attribute }
+    selectArea: store.selectArea, setTimezone: store.setTimezone, editLegacy: store.editLegacy, removeLegacy: store.removeLegacy, attribute: store.attribute,
+    correctNative: store.correctNative, prepareCorrection: store.prepareCorrection }
 }
