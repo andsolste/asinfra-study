@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
 import { activityName, activityUsable, flowDurations } from '../lib/flow-work'
 import type { FlowActivity } from '../lib/flow-work'
-import { startActivityCommand } from '../lib/flow-activity'
+import { pauseActivityCommand, startActivityCommand } from '../lib/flow-activity'
 import { formatDuration } from '../lib/study-sessions'
 import DetailPanel from './DetailPanel'
 import FlowFeedback from './FlowFeedback'
@@ -58,9 +58,9 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
     } catch (error) { setValidation(error instanceof Error ? error.message : 'Kontroller aktiviteten.') }
   }
   async function pause() {
-    if (!current || !open) return
-    await data.dispatch({ kind: 'activity', dayId: current.work_day.id, expectedId: open.id,
-      expectedCount: current.segments.length, nextId: null, areaId: null, taskId: null })
+    const command = pauseActivityCommand(data.data)
+    if (!command) return
+    await data.dispatch(command)
     heading.current?.focus()
   }
   async function resume(element: HTMLElement) {

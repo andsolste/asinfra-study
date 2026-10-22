@@ -8,6 +8,7 @@ import FlowHistory from './FlowHistory'
 import FlowStatistics from './FlowStatistics'
 import FlowExport from './FlowExport'
 import WorkStatus from './WorkStatus'
+import FlowInterruption from './FlowInterruption'
 import DetailPanel from './DetailPanel'
 import { useSubjects } from '../hooks/useSubjects'
 import { useFlowHistory } from '../hooks/useFlowHistory'
@@ -25,7 +26,7 @@ type Panel = keyof typeof detailPanels
 export default function Account({ session }: { session: Session }) {
   const subjects = useSubjects()
   const history = useFlowHistory()
-  const flow = useFlowWorkDay()
+  const flow = useFlowWorkDay(session.user.id)
   const { location, navigate } = useFlowNavigation()
   const [taskRequest, setTaskRequest] = useState<TaskRequest | null>(null)
   const [taskEditing, setTaskEditing] = useState(false)
@@ -103,6 +104,7 @@ export default function Account({ session }: { session: Session }) {
       </AppHeader>
       <WorkStatus data={flow} location={location} navigate={navigate} />
       <main id="study-content" className="timer-workspace" aria-label={flowViews[location.view]} tabIndex={-1} ref={panelFallback}>
+        <FlowInterruption data={flow} />
         {/* Keep workspace/form state across views; only export is intentionally
             unmounted on close so its snapshot/jobs are cancelled as before. */}
         <div className="work-layout" hidden={location.view !== 'work'}>

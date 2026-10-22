@@ -69,6 +69,10 @@ h2:target { color: var(--purple-light); }
 .work-status a { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem 1rem; min-height: 44px; padding: .625rem .875rem; border-left: 2px solid var(--purple-light); background: var(--surface); color: var(--text-secondary); text-decoration: none; overflow-wrap: anywhere; }
 .work-status-label { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .work-status-link { flex-shrink: 0; color: var(--purple-light); }
+.flow-interruption { margin-bottom: var(--space-4); padding: var(--space-4); border: 1px solid var(--border); border-left: 3px solid var(--purple-light); border-radius: var(--control-radius); background: var(--surface); overflow-wrap: anywhere; }
+.flow-interruption h2 { font-size: 1rem; }
+.flow-interruption p { margin: .5rem 0 0; color: var(--text-secondary); }
+.flow-interruption .timer-meta { color: var(--text-muted); }
 .view-heading { margin-bottom: var(--space-6); }
 .insights-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .insights-navigation { display: flex; flex-wrap: wrap; gap: .25rem; }

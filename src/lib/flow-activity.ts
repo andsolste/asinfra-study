@@ -13,3 +13,10 @@ export function startActivityCommand(activity: FlowActivity, state: FlowState | 
   if (!zone || !boundary) throw new Error('Kontroller systemets tidssone og hent status før du starter.')
   return { kind: 'start', dayId: uuid(), segmentId: uuid(), timezone: zone, boundary, ...activity }
 }
+
+// Ordinary Pause and interruption assistance share the same guarded command.
+export function pauseActivityCommand(state: FlowState | null): FlowCommand | null {
+  const current = state?.current, open = current?.segments.find(s => s.ended_at === null)
+  return current && open ? { kind: 'activity', dayId: current.work_day.id, expectedId: open.id,
+    expectedCount: current.segments.length, nextId: null, areaId: null, taskId: null } : null
+}
