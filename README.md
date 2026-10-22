@@ -76,6 +76,27 @@ aktivitet når dagen er pauset, eller at status må kontrolleres. Lenken går ti
 Arbeid uten å starte eller fortsette noe. Sekundærpaneler bruker native dialog
 med Escape, fokusretur og Tab/Shift+Tab; innhold i lukkede detaljer er ikke tabstopp.
 
+### Kontroll av lange timeravbrudd (#34B)
+
+Flow kan oppdage et execution-gap på minst **30 minutter** mens en bekreftet
+arbeidsperiode kjører. Dette er ikke sikker dvaledeteksjon: brukeren kan ha jobbet
+i en annen app mens Flow var frosset. Begge lokale klokker brukes bare som signal.
+Flow venter på en ny serverlesing startet etter observasjonen, og tilbyr kontroll
+bare hvis samme dag, segment og segmentantall fortsatt kjører.
+
+«Jeg jobbet videre» avviser observasjonen uten å skrive til backend. «Pause nå»
+bruker samme serverstyrte pause som vanlig Pause. **Allerede registrert tid endres
+ikke**, og ingen arbeidstid trekkes fra automatisk. Byttet aktivitet eller utløpt
+dag forkaster den gamle kontrollen. Pending/recovery har fortsatt prioritet.
+
+Ett kontobundet `sessionStorage`-hint (ID-er, segmentantall og observasjonstid)
+støtter reload/discard; det er ikke en timerkilde eller aktivitetslogg. Det skrives
+høyst omtrent hvert minutt, samt ved best-effort lifecycle-kontrollpunkter, og
+forkastes ved pause/bytte, kontobytte/logout eller etter 48 timer. Blokkert/korrupt
+storage hindrer ikke timeren. Ingen inputovervåkning eller Idle Detection brukes.
+En glemt timer uten execution-gap oppdages ikke. Native tidskorrigering krever en
+egen gjennomgått løsning; denne fasen endrer ikke historikken.
+
 ### Arbeid: Nå, Neste og Etterpå (#27C)
 
 Arbeidsperioden og Pause/Fortsett er primære; dagens total og Dagsdetaljer er

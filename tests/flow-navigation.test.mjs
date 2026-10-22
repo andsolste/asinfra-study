@@ -73,7 +73,7 @@ test('real navigation uses semantic current links and leaves modified clicks to 
 test('workspace keeps a single owner, persistent forms and only secondary account/export dialogs', async () => {
   const source = file => readFile(new URL('../' + file, import.meta.url), 'utf8')
   const account = await source('src/components/Account.tsx')
-  assert.equal((account.match(/useFlowWorkDay\(\)/g) ?? []).length, 1)
+  assert.equal((account.match(/useFlowWorkDay\(session\.user\.id\)/g) ?? []).length, 1)
   assert.match(account, /hidden=\{location\.view !== 'work'\}/)
   assert.match(account, /hidden=\{location\.view !== 'tasks'\}/)
   assert.match(account, /hidden=\{location\.view !== 'insights'\}/)
