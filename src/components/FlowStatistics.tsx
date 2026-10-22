@@ -21,18 +21,11 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
   const metadata = activeArea ? catalog.areas.find(a => a.id === activeArea.id) : null
   const areaName = metadata?.name ?? (activeArea?.id ? 'Utilgjengelig område' : 'Annet')
   return <section className="dashboard-panel statistics-panel" aria-labelledby="statistics-title" aria-busy={activeArea ? data.areaStatus === 'loading' : data.statisticsStatus === 'loading'}>
-    <header className="panel-heading"><div><p className="section-label">Faktisk arbeid</p><h2 id="statistics-title" ref={heading} tabIndex={-1}>{activeArea ? areaName : 'Arbeidstid'}</h2></div>
+    <header className="panel-heading"><div><p className="section-label">{activeArea ? 'Områdedetaljer' : 'Samlet statistikk'}</p><h2 id="statistics-title" ref={heading} tabIndex={-1}>{activeArea ? areaName : 'Arbeidstid'}</h2></div>
       {!activeArea && <div className="statistics-kinds" role="group" aria-label="Statistikkperiode">{kinds.map(value => <button key={value.kind} type="button" className="secondary-button" aria-pressed={value.kind === period.kind}
         disabled={busy} onClick={() => void data.selectPeriod(period.kind === 'total' ? { kind: value.kind, anchor: null } : changeFlowKind(period, value.kind, data.now(), data.timezone, totals?.task_date))}>{value.label}</button>)}</div>}
     </header>
-    {activeArea && <><button type="button" className="text-button" onClick={() => area(undefined)}>← Samlet statistikk</button><p className="task-area">{metadata?.code}{metadata?.code ? ' · ' : ''}{metadata?.is_archived ? 'Arkivert område' : 'Område'}</p></>}
-    <details className="statistics-policy"><summary>Tidssoner og gruppering</summary>
-      <p>Native Flow-dager bruker lagret dato og tidssone. Eldre registreringer mangler lagret tidssone og grupperes etter visningstidssonen nedenfor, med dagsgrense kl. 04:00. Dette beskriver visningen, ikke opprinnelig registreringstidssone. Totalt er uavhengig av tidssone.</p>
-      <form className="statistics-zone" onSubmit={event => { event.preventDefault(); void data.setTimezone(zone.trim() || null) }}>
-        <div className="auth-field"><label htmlFor="statistics-zone">Visningstidssone for eldre registreringer</label><input id="statistics-zone" value={zone} placeholder="IANA-tidssone" onChange={e => setZone(e.target.value)} /></div>
-        <button type="submit" className="secondary-button" disabled={busy}>Bruk tidssone</button>
-      </form>
-    </details>
+    {activeArea && <><button type="button" className="text-button" onClick={() => area(undefined)}>← Samlet statistikk</button><p className="task-area">{metadata?.code}{metadata?.code ? ' · ' : ''}{metadata?.is_archived ? 'Arkivert område' : activeArea.id && !metadata ? 'Området er ikke lenger tilgjengelig i områdelisten' : 'Område'}</p></>}
     {activeArea ? <>
       {data.areaStatus === 'loading' && <p role="status">Henter områdestatistikk …</p>}
       {data.areaError && <div role="alert"><p>{data.areaError}</p><button type="button" onClick={() => area(activeArea.id)}>Prøv igjen</button></div>}
@@ -55,8 +48,6 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
           <button type="button" className="secondary-button" aria-label={`Neste ${selected.unit}`} disabled={busy || !period.anchor} onClick={() => void data.selectPeriod(shiftFlowPeriod(period, 1))}>→</button>
         </div>}
       </div>
-      <p className="timer-meta">Pauser teller ikke.</p>
-      <button type="button" className="text-button" disabled={busy} onClick={() => void data.selectPeriod(period)}>Hent statistikk på nytt</button>
       {data.statisticsStatus === 'loading' && <p className="statistics-state" role="status">Henter statistikk …</p>}
       {data.statisticsError && <div role="alert"><p className="auth-error">{data.statisticsError}</p><button type="button" disabled={busy} onClick={() => void data.selectPeriod(period)}>Prøv igjen</button></div>}
       {data.statisticsStatus === 'ready' && totals && <>
@@ -66,11 +57,20 @@ export default function FlowStatistics({ data, catalog }: { data: FlowHistoryDat
           {(period.kind === 'week' || period.kind === 'month') && <div><dt>Mest aktive dag</dt><dd>{totals.busiestDay ? <>{dateLabel(totals.busiestDay.date, { weekday: 'short', day: 'numeric', month: 'short' })}<span>{formatDuration(totals.busiestDay.total)}</span></> : 'Ingen ennå'}</dd></div>}
         </dl>
         {!totals.total && <p className="statistics-state">Ingen registrert arbeidstid i denne perioden.</p>}
-        {period.kind === 'week' || period.kind === 'month' || totals.total > 0 ? <StatisticsChart summary={totals} period={period} /> : null}
-        {totals.areas.length > 0 && <StatisticsLegend subjects={totals.areas} onArea={id => area(id)} />}
+        {totals.areas.length > 0 && <section className="statistics-areas" aria-labelledby="statistics-areas-title"><h3 id="statistics-areas-title">Områder</h3>
+          <p className="timer-meta">Velg et område for summer og oppgavebidrag.</p><StatisticsLegend subjects={totals.areas} onArea={id => area(id)} showArchived /></section>}
+        {totals.total > 0 && <StatisticsChart summary={totals} period={period} />}
         <StatisticsTable summary={totals} period={period} />
         <p className="timer-meta">Inkluderer pågående arbeid ved serverkontroll {new Date(totals.server_time).toLocaleTimeString('nb-NO')}. Hent på nytt for oppdatert tid.</p>
       </>}
+      <button type="button" className="text-button statistics-refresh" disabled={busy || data.statisticsStatus === 'loading'} onClick={() => void data.selectPeriod(period)}>Hent statistikk på nytt</button>
     </>}
+    <details className="statistics-policy"><summary>Avansert: Tidssoner og gruppering</summary>
+      <p>Native Flow-dager bruker lagret dato og tidssone. Eldre registreringer mangler lagret tidssone og grupperes etter visningstidssonen nedenfor, med dagsgrense kl. 04:00. Dette beskriver visningen, ikke opprinnelig registreringstidssone. Totalt er uavhengig av tidssone.</p>
+      <form className="statistics-zone" onSubmit={event => { event.preventDefault(); void data.setTimezone(zone.trim() || null) }}>
+        <div className="auth-field"><label htmlFor="statistics-zone">Visningstidssone for eldre registreringer</label><input id="statistics-zone" value={zone} placeholder="IANA-tidssone" onChange={e => setZone(e.target.value)} /></div>
+        <button type="submit" className="secondary-button" disabled={busy}>Bruk tidssone</button>
+      </form>
+    </details>
   </section>
 }

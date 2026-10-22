@@ -19,7 +19,7 @@ function SubjectPatterns({ prefix, subjects }: { prefix: string; subjects: Subje
   })}</defs>
 }
 
-export function StatisticsLegend({ subjects, onArea }: { subjects: SubjectWork[]; onArea?: (id: string | null) => void }) {
+export function StatisticsLegend({ subjects, onArea, showArchived = false }: { subjects: SubjectWork[]; onArea?: (id: string | null) => void; showArchived?: boolean }) {
   const prefix = useId()
   return <ul className="statistics-legend" aria-label="Arbeidstid per område">{subjects.map(subject =>
     <li key={key(subject)}>
@@ -27,7 +27,7 @@ export function StatisticsLegend({ subjects, onArea }: { subjects: SubjectWork[]
         <SubjectPatterns prefix={prefix} subjects={[subject]} />
         <rect width="20" height="20" rx="3" fill={paint(prefix, subject)} />
       </svg>
-      {onArea ? <button type="button" className="statistics-area-link" onClick={() => onArea(subject.id)}>{subject.code && <span className="subject-code">{subject.code} · </span>}{subject.name}</button>
+      {onArea ? <button type="button" className="statistics-area-link" onClick={() => onArea(subject.id)}>{subject.code && <span className="subject-code">{subject.code} · </span>}{subject.name}{showArchived && subject.is_archived && <small> · Arkivert</small>}</button>
         : <span>{subject.code && <span className="subject-code">{subject.code} · </span>}{subject.name}</span>}
       <strong>{formatDuration(subject.work)}</strong>
     </li>)}</ul>

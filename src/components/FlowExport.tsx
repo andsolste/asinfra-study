@@ -16,6 +16,7 @@ export default function FlowExport({ history }: { history: FlowHistoryData }) {
   const busy = data.phase === 'csv' || data.phase === 'report', reportHeading = useRef<HTMLHeadingElement>(null)
   const displayed = data.resolvedPeriod ?? period, selected = kinds.find(k => k.kind === displayed.kind)!
   useEffect(() => { data.cancel() }, [period, history.timezone, data.cancel])
+  useEffect(() => setZone(history.timezone ?? ''), [history.timezone])
   useEffect(() => { if (data.report) reportHeading.current?.focus() }, [data.report])
   function select(next: FlowPeriod) { data.cancel(); setPeriod(next) }
   async function generate(action: 'csv' | 'preview') { setLastAction(action); await data[action](period, history.timezone) }
@@ -28,16 +29,8 @@ export default function FlowExport({ history }: { history: FlowHistoryData }) {
       <button type="button" className="secondary-button" onClick={() => select(currentPeriod(period.kind, history.now(), history.timezone, history.statistics?.task_date))}>{selected.current}</button>
       <button type="button" className="secondary-button" aria-label={`Neste ${selected.unit}`} disabled={!displayed.anchor} onClick={() => select(shiftFlowPeriod(displayed, 1))}>→</button>
     </div>}</div>
-    <details className="statistics-policy"><summary>Tidssone og datagrunnlag</summary>
-      <p>Samme visningstidssone som i Statistikk: {history.timezone ?? 'ikke valgt'}. Native bruker lagrede Flow-dager. Eldre perioder deles ved kl. 04:00 i valgt visningstidssone; dette er ikke historiske tidssonemetadata.</p>
-      <form className="statistics-zone" onSubmit={event => { event.preventDefault(); data.cancel(); void history.setTimezone(zone.trim() || null) }}>
-        <div className="auth-field"><label htmlFor="export-zone">Visningstidssone</label><input id="export-zone" value={zone} onChange={e => setZone(e.target.value)} placeholder="IANA-tidssone" /></div>
-        <button type="submit" className="secondary-button">Bruk tidssone</button>
-      </form>
-      <p>Områdenavn, oppgavetittel/status/frist og beskrivelser er dagens tilgjengelige metadata. Historisk områdetilknytning følger segmentet. CSV krever gyldig visningstidssone, også for Totalt.</p>
-    </details>
-    <p className="export-privacy">Eksport kan inneholde områdenavn, oppgaver, frister og beskrivelser. Filen lastes bare ned til enheten din; den lastes ikke opp eller deles. E-post, innloggingsdata og interne ID-er er ikke med.</p>
-    <div className="export-options"><section><h3>CSV</h3><p>Faktiske arbeidsperioder, én rad per logisk dag. UTF-8 med BOM, komma som skilletegn og entydige ISO-tidsstempler.</p>
+    <p className="export-intro">Eksporter registrert Flow-arbeid i valgt periode, ikke bare de innlastede radene i Arbeidslogg.</p>
+    <div className="export-options"><section><h3>CSV</h3><p>Arbeidsperioder som tabell for videre analyse, for eksempel i et regneark.</p>
       <button type="button" disabled={busy} onClick={() => void generate('csv')}>Last ned CSV</button></section>
       <section><h3>Arbeidsrapport</h3><p>Forhåndsvis arbeidstid, områder og oppgavebidrag. Skriv ut eller lagre som PDF fra nettleseren.</p>
         <button type="button" className="secondary-button" disabled={busy} onClick={() => void generate('preview')}>Vis rapport</button></section></div>
@@ -45,6 +38,16 @@ export default function FlowExport({ history }: { history: FlowHistoryData }) {
       : data.phase === 'report' ? 'Henter rapport …' : data.notice}</p>
     {busy && <button type="button" className="text-button" onClick={data.cancel}>Avbryt eksport</button>}
     {data.error && <div role="alert"><p className="auth-error">{data.error}</p><button type="button" onClick={() => void generate(lastAction)}>Prøv igjen</button></div>}
+    <p className="export-privacy">Filen kan inneholde områder, oppgaver, frister og beskrivelser. Den lastes bare ned til enheten din, ikke opp eller deles. E-post, innloggingsdata og interne ID-er er ikke med.</p>
+    <details className="statistics-policy"><summary>Avansert: Tidssone og datagrunnlag</summary>
+      <p>Samme visningstidssone som i Oversikt: {history.timezone ?? 'ikke valgt'}. Native bruker lagrede Flow-dager. Eldre perioder deles ved kl. 04:00 i valgt visningstidssone; dette er ikke historiske tidssonemetadata.</p>
+      <form className="statistics-zone" onSubmit={event => { event.preventDefault(); data.cancel(); void history.setTimezone(zone.trim() || null) }}>
+        <div className="auth-field"><label htmlFor="export-zone">Visningstidssone</label><input id="export-zone" value={zone} onChange={e => setZone(e.target.value)} placeholder="IANA-tidssone" /></div>
+        <button type="submit" className="secondary-button">Bruk tidssone</button>
+      </form>
+      <p>Områdenavn, oppgavetittel/status/frist og beskrivelser er dagens tilgjengelige metadata. Historisk områdetilknytning følger segmentet. CSV krever gyldig visningstidssone, også for Totalt.</p>
+      <p>CSV bruker UTF-8 med BOM, komma, ISO-tidsstempler og én rad per arbeidsperiode og logisk dag. Datagrunnlaget fryses ved eksportstart. Endres grunnlaget under henting, må eksporten startes på nytt; ingen delvis fil lastes ned.</p>
+    </details>
     {data.report && <section className="report-preview" aria-labelledby="report-preview-title"><div className="panel-heading"><h3 id="report-preview-title" tabIndex={-1} ref={reportHeading}>Forhåndsvisning</h3>
       <button type="button" onClick={() => window.print()}>Skriv ut / Lagre som PDF</button></div><FlowReport data={data.report} /></section>}
     {data.report && createPortal(<div className="flow-print-root"><FlowReport data={data.report} /></div>, document.body)}
