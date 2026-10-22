@@ -7,6 +7,7 @@ import FlowTimer from './FlowTimer'
 import FlowHistory from './FlowHistory'
 import FlowStatistics from './FlowStatistics'
 import FlowExport from './FlowExport'
+import WorkStatus from './WorkStatus'
 import DetailPanel from './DetailPanel'
 import { useSubjects } from '../hooks/useSubjects'
 import { useFlowHistory } from '../hooks/useFlowHistory'
@@ -17,7 +18,6 @@ import type { TaskRequest } from './Tasks'
 import FlowNavigation, { followFlowLink } from './FlowNavigation'
 import { useFlowNavigation } from '../hooks/useFlowNavigation'
 import { flowLocationUrl, flowViews } from '../lib/flow-navigation'
-import { activityName } from '../lib/flow-work'
 
 const detailPanels = { export: 'Eksport', subjects: 'Områder' } as const
 type Panel = keyof typeof detailPanels
@@ -40,8 +40,6 @@ export default function Account({ session }: { session: Session }) {
   const panelLocation = useRef(locationKey)
   const previousLocation = useRef(locationKey)
   const panelBusy = panel === 'subjects' && subjects.busy && subjects.status === 'ready'
-  const activeSegment = flow.data?.current?.segments.find(s => s.ended_at === null)
-  const activity = activeSegment ? activityName({ areaId: activeSegment.area_id, taskId: activeSegment.task_id }, flow.catalog) : null
 
   useEffect(() => {
     if (previousLocation.current === locationKey) return
@@ -103,13 +101,7 @@ export default function Account({ session }: { session: Session }) {
         </details>
         {error && <p role="alert" className="auth-error">{error}</p>}
       </AppHeader>
-      {location.view !== 'work' && (activity || flow.phase === 'recovering' || flow.phase === 'error') && <p className="work-status" role="status">
-        <a href={flowLocationUrl(window.location.href, { ...location, view: 'work' })}
-          onClick={event => followFlowLink(event, () => navigate({ ...location, view: 'work' }))}>
-          <span className="work-status-label">{flow.phase === 'recovering' ? 'Kontrollerer arbeidsstatus …' : flow.phase === 'error' ? 'Arbeidsstatus må kontrolleres'
-            : `Arbeider · ${activity!.area}${activeSegment?.task_id ? ` · ${activity!.task}` : ''}`}</span><span className="work-status-link">Til Arbeid →</span>
-        </a>
-      </p>}
+      <WorkStatus data={flow} location={location} navigate={navigate} />
       <main id="study-content" className="timer-workspace" aria-label={flowViews[location.view]} tabIndex={-1} ref={panelFallback}>
         {/* Keep workspace/form state across views; only export is intentionally
             unmounted on close so its snapshot/jobs are cancelled as before. */}

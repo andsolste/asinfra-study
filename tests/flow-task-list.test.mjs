@@ -83,6 +83,7 @@ test('real task/area components expose grouped headings, compact actions and no 
   for (const n of [4, 5, 6, 7]) assert.doesNotMatch(idle, new RegExp(`aria-label="Start Oppgave ${n}"`))
   const running = renderList(workspace('running', { segments: [{ task_id: id(2), ended_at: null }] }))
   assert.match(running, />Pågår</); assert.doesNotMatch(running, /aria-label="(?:Start|Bytt til) Oppgave 2"/)
+  assert.match(running, /class="task-running" role="status" tabindex="-1"/)
   assert.match(running, /aria-label="Bytt til Oppgave 1"/)
   const paused = renderList(workspace('paused', { segments: [{ task_id: id(2), ended_at: at }] }))
   assert.match(paused, /aria-label="Start Oppgave 2"/)
