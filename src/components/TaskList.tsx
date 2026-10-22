@@ -8,18 +8,28 @@ import { taskArea } from '../lib/flow-task-list'
 
 export function TaskStart({ data, task }: { data: FlowWorkspaceData; task: FlowTask }) {
   const [error, setError] = useState<string | null>(null)
+  const status = useRef<HTMLSpanElement | null>(null)
   const current = data.data?.current?.segments.find(segment => segment.ended_at === null)?.task_id === task.id
   const usable = activityUsable({ areaId: task.area_id, taskId: task.id }, data.catalog)
   const action = data.phase === 'running' ? 'Bytt til' : 'Start'
   if (task.status !== 'active') return null
-  if (current) return <span className="task-running" role="status">Pågår</span>
+  if (current) return <span className="task-running" role="status" tabIndex={-1} ref={status}>Pågår</span>
   if (!usable) return null
   return <>
     <button type="button" className="secondary-button" aria-label={`${action} ${task.title}`}
       disabled={!['idle', 'running', 'paused'].includes(data.phase) || data.pending !== null || (!data.data?.current && !data.data?.next_boundary_at)}
-      onClick={async () => {
+      onClick={async event => {
+        const opener = event.currentTarget
         setError(null)
-        try { await data.dispatch(startActivityCommand({ areaId: task.area_id, taskId: task.id }, data.data, data.catalog)) }
+        try {
+          await data.dispatch(startActivityCommand({ areaId: task.area_id, taskId: task.id }, data.data, data.catalog))
+          requestAnimationFrame(() => {
+            // Start becomes a status label. Keep keyboard context without stealing
+            // focus if the user navigated or moved to another control meanwhile.
+            if ((document.activeElement === opener || document.activeElement === document.body)
+              && status.current?.getClientRects().length) status.current.focus()
+          })
+        }
         catch (error) { setError(error instanceof Error ? error.message : 'Kunne ikke starte oppgaven.') }
       }}>{action}</button>
     {error && <p className="auth-error" role="alert">{error}</p>}

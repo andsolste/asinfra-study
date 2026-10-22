@@ -36,7 +36,10 @@ export default function DetailPanel({ id = 'study-details', open, title, busy, h
       if (event.key !== 'Tab') return
       const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
         'button, a[href], input, select, textarea, summary, [tabindex]',
-      )).filter(element => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0)
+      )).filter(element => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0
+        // Closed details can retain layout boxes in Chromium, but their content
+        // cannot receive focus. The summary itself is still a tab stop.
+        && !element.closest('details:not([open]) > :not(summary)'))
       const first = controls[0], last = controls.at(-1)
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault(); last?.focus()

@@ -50,15 +50,15 @@ export default function Subjects({ data, tasks }: { data: ReturnType<typeof useS
 
   return <section className="dashboard-panel subjects-section" aria-labelledby="subjects-title" aria-busy={data.busy}>
     <header className="subjects-heading">
-      <div><p className="section-label">Organisering</p><h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine områder</h2></div>
+      <div><p className="section-label">Områder</p><h2 id="subjects-title" ref={heading} tabIndex={-1}>Dine områder</h2></div>
       {!creating && <button type="button" className="secondary-button" disabled={disabled || editing !== null} onClick={() => setCreating(true)}>Nytt område</button>}
     </header>
     <p>Områder samler studier, prosjekter og annet arbeid. Arkivering sletter ikke tidligere arbeid eller oppgaver, men sperrer området for nytt arbeid. Du kan aktivere det igjen senere.</p>
-    <p role="status">{data.status === 'loading' ? 'Henter områdene dine …' : data.busy ? 'Lagrer …' : data.notice}</p>
+    <p role="status">{data.status === 'loading' ? data.subjects.length ? 'Oppdaterer områdene dine …' : 'Henter områdene dine …' : data.busy ? 'Lagrer …' : data.notice}</p>
     {data.error && <div role="alert"><p className="auth-error">{data.error}</p>
       <button className="text-button" type="button" disabled={data.busy} onClick={() => void data.reload()}>Hent områder på nytt</button></div>}
     {creating && <SubjectForm disabled={disabled} busy={data.busy} onSave={input => data.save(input)} onCancel={closeForm} />}
-    {data.status !== 'loading' && <>
+    {(data.status !== 'loading' || data.subjects.length > 0) && <>
       <section aria-labelledby="active-subjects-title">
         <h3 id="active-subjects-title">Aktive områder</h3>
         {active.length ? list(active) : data.status === 'ready' && <p>Du har ingen aktive områder. Opprett ditt første område med «Nytt område».</p>}

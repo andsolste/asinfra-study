@@ -49,7 +49,7 @@ export default function FlowExport({ history }: { history: FlowHistoryData }) {
       <p>CSV bruker UTF-8 med BOM, komma, ISO-tidsstempler og én rad per arbeidsperiode og logisk dag. Datagrunnlaget fryses ved eksportstart. Endres grunnlaget under henting, må eksporten startes på nytt; ingen delvis fil lastes ned.</p>
     </details>
     {data.report && <section className="report-preview" aria-labelledby="report-preview-title"><div className="panel-heading"><h3 id="report-preview-title" tabIndex={-1} ref={reportHeading}>Forhåndsvisning</h3>
-      <button type="button" onClick={() => window.print()}>Skriv ut / Lagre som PDF</button></div><FlowReport data={data.report} /></section>}
+      <button type="button" onClick={() => window.print()}>Skriv ut / Lagre som PDF</button></div><FlowReport data={data.report} preview /></section>}
     {data.report && createPortal(<div className="flow-print-root"><FlowReport data={data.report} /></div>, document.body)}
   </section>
 }

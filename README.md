@@ -50,7 +50,7 @@ hooks/API-importer i presentasjonen. Browser-smoke bør i tillegg dekke:
 
 Den offentlige oversikten bruker samme Auth- og backendflyt som resten av appen.
 
-## Navigasjon i innlogget Flow (#27B)
+## Navigasjon i innlogget Flow
 
 Hovedområdene er **Arbeid**, **Oppgaver** og **Innsikt**. Arbeid beholder timer og
 oppgavekø; Oppgaver er en vanlig hovedvisning. Innsikt samler Oversikt og
@@ -70,6 +70,11 @@ historikkredigering beholdes når en hovedvisning skjules. Eksport monteres bare
 mens dialogen er åpen og avbrytes ved lukking/navigasjon som før. Dagsgrensen
 forklares i Dagsdetaljer og eksisterende tidssone-/datagrunnlagsvisninger, ikke
 gjentatt på normalflaten. Køsortering, API-er og backend er uendret.
+
+På tvers av hovedvisningene viser en kompakt status arbeid som kjører, siste
+aktivitet når dagen er pauset, eller at status må kontrolleres. Lenken går til
+Arbeid uten å starte eller fortsette noe. Sekundærpaneler bruker native dialog
+med Escape, fokusretur og Tab/Shift+Tab; innhold i lukkede detaljer er ikke tabstopp.
 
 ### Arbeid: Nå, Neste og Etterpå (#27C)
 
