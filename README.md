@@ -122,6 +122,38 @@ Det bør støtte Flytt opp/ned med tastatur/mobil, ikke bare dra-og-slipp. Frist
 eller browser-only localStorage skal ikke brukes som skjult prioritet. Dette
 er ikke implementert her; Arbeid beholder den fristbaserte anbefalingen fra 27C.
 
+### Innsikt: Oversikt, Arbeidslogg og Eksport (#27E)
+
+Oversikt viser valgt periode, total arbeidstid, områder og diagram med tekstlig
+tallgrunnlag. Dag/Uke/Måned/Totalt og områdedetaljenes fire summer/oppgavebidrag
+bruker samme API-er og beregninger som før. Arkiverte områder merkes diskret.
+Tomme perioder viser null og tallgrunnlag uten et tomt diagram. Tidssoner og
+gruppering ligger under Avansert nederst; native lagret tidssone og eldre datas
+visningstidssone har fortsatt ulike roller.
+
+Arbeidslogg viser avsluttede Flow-dager og tydelig merkede eldre registreringer,
+nyeste først. Hver native dag har dato, arbeidstid og en kort områdeoversikt;
+lagret tidssone, start/slutt og `dayTimeline()` ligger under Vis tidslinje.
+Korrigering endrer fortsatt bare tilknytning med forventede originalverdier,
+aldri native tidspunkter eller arbeidsdag. Eldre registreringer beholder
+HistoryForm og bekreftet sletting. Fokus returneres til handling/rad etter
+redigering og til første nye rad etter Vis flere.
+
+Historikken er fortsatt cursorbasert, opptil 25 poster per kall. Den filtreres
+**ikke** på klienten etter statistikkperioden. En fullstendig periodefiltrert
+arbeidslogg krever senere API-/backendarbeid; innlastede sider må ikke fremstilles
+som en komplett periode.
+
+Eksporter forblir en sekundær handling i Innsikt. Dialogen starter med
+`history.period` og visningstidssonen fra Oversikt, men har eget periodevalg.
+CSV for videre analyse og rapport for visning/utskrift/PDF er skilt tydelig.
+Avansert datagrunnlagsinformasjon er kollapset. Eksport-store, frosset grunnlag,
+cursor-validering, avbrudd/discard, CSV-sikkerhet og print-portalen er uendret.
+
+**Avgrensning mot #30:** Denne fasen endrer ikke timer, pause-/arbeidstidssemantikk,
+04:00, `formatDuration()`, sekundvisning, CSV-kolonner eller tidsstempelpresisjon.
+En eventuell konsistent endring til minuttvisning hører til #30 etter #27.
+
 ## Arkitektur og repoansvar
 
 - **[andsolste/asinfra-study](https://github.com/andsolste/asinfra-study)** eier
@@ -281,7 +313,7 @@ ingen optimistisk sletting/suksess. Feilet recovery sperrer blind gjentakelse.
 `20261019140000_add_flow_export.sql` i `andsolste/asinfra`. Denne PR-en verken
 merger, deployer hosted schema eller lukker #7. Ingen migration kopieres hit.
 
-`Eksport` ligger mellom Historikk og Organisering. `FlowExport` / `useFlowExport`
+`Eksporter` åpnes som en sekundær dialoghandling i Innsikt. `FlowExport` / `useFlowExport`
 har en liten, separat `flow-export-store.ts`: bare eksplisitte brukerhandlinger
 henter eksportdata. Periodehjelpere og display timezone deles med eksisterende
 Flow; ingen ny kalender-, timer- eller statistikkmotor innføres.
@@ -397,7 +429,7 @@ Build trenger de to browserverdiene ovenfor. Vite bruker `base: '/'` og lager
   igjen. Nye økter bruker aktive områder; historiske økter kan bruke arkiverte områder.
 - **Historikk:** native dager og eldre økter deler én kronologisk liste med «Vis flere».
   Bare eldre registreringer har full tidseditor/sletting; native har begrenset tilknytning.
-- **Statistikk:** Dag/Uke/Måned/Totalt i detaljpanelet, med total, mest aktive område
+- **Statistikk:** Dag/Uke/Måned/Totalt under Innsikt → Oversikt, med total, mest aktive område
   og (for uke/måned) mest aktive dag. Områdenavn i listen åpner områdedetaljer.
   Ved bytte mellom dag/uke/måned brukes i dag for en gjeldende periode, ellers dens første dag.
 
