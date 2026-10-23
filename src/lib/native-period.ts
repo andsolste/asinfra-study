@@ -56,7 +56,7 @@ export function nativeMinuteInstant(value: string, zone: string, original?: stri
   if (candidates.length > 1) throw new Error('Klokkeslettet forekommer to ganger ved tidsomstilling. Velg et entydig tidspunkt; urørte felt beholder riktig forekomst.')
   return new Date(candidates[0]).toISOString()
 }
-export type NativeDraft = { from: string; to: string; area: string; task: string }
+export type NativeDraft = { from: string; to: string; area: string; task: string; resetToZero?: boolean }
 export function nativeDraft(snapshot: FlowSnapshot, segment: FlowWorkSegment): NativeDraft {
   return { from: nativeLocalMinute(segment.started_at, snapshot.work_day.timezone),
     to: segment.ended_at ? nativeLocalMinute(segment.ended_at, snapshot.work_day.timezone) : '',
@@ -64,8 +64,10 @@ export function nativeDraft(snapshot: FlowSnapshot, segment: FlowWorkSegment): N
 }
 export function buildNativeCorrection(snapshot: FlowSnapshot, segment: FlowWorkSegment, draft: NativeDraft, now: number, catalog: FlowCatalog): NativeSegmentCorrection {
   const zone = snapshot.work_day.timezone
-  const desired = { started_at: nativeMinuteInstant(draft.from, zone, segment.started_at),
-    ended_at: nativeMinuteInstant(draft.to, zone, segment.ended_at), area_id: draft.area || null, task_id: draft.task || null }
+  // Only an explicit action neutralizes a period. Equal displayed minutes can
+  // still contain different original seconds/microseconds or DST occurrences.
+  const desired = { started_at: draft.resetToZero ? segment.started_at : nativeMinuteInstant(draft.from, zone, segment.started_at),
+    ended_at: draft.resetToZero ? segment.started_at : nativeMinuteInstant(draft.to, zone, segment.ended_at), area_id: draft.area || null, task_id: draft.task || null }
   const from = micros(desired.started_at), to = micros(desired.ended_at), day = snapshot.work_day
   if (from < micros(day.started_at) || from >= micros(day.cutoff_at) || to < from || to > micros(day.ended_at ?? day.cutoff_at)) {
     throw new Error('Perioden må ligge innenfor arbeidsdagen, med Til lik eller etter Fra.')

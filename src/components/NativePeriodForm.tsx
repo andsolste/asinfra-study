@@ -44,12 +44,16 @@ export default function NativePeriodForm({ snapshot, segment, catalog, now, busy
           <option value="">Uten oppgave</option>{draft.task && !tasks.some(t => t.id === draft.task) && <option value={draft.task}>Utilgjengelig historisk oppgave</option>}
           {tasks.map(t => <option key={t.id} value={t.id}>{t.title}{t.status === 'completed' ? ' · Fullført' : ''}</option>)}
         </select></div>
-        <div className="auth-field"><label htmlFor={prefix + '-from'}>Fra</label><input ref={first} id={prefix + '-from'} type="datetime-local" step="60" required value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></div>
+        <div className="auth-field"><label htmlFor={prefix + '-from'}>Fra</label><input ref={first} id={prefix + '-from'} type="datetime-local" step="60" required value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value, resetToZero: false })} /></div>
       </>}
       <div className="auth-field"><label htmlFor={prefix + '-to'}>{finishOnly ? 'Sluttet å jobbe' : 'Til'}</label>
-        <input ref={finishOnly ? first : undefined} id={prefix + '-to'} type="datetime-local" step="60" required value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></div>
+        <input ref={finishOnly ? first : undefined} id={prefix + '-to'} type="datetime-local" step="60" required value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value, resetToZero: false })} /></div>
+      <button type="button" className="secondary-button" aria-pressed={!!draft.resetToZero} onClick={() => {
+        const originalMinute = nativeLocalMinute(segment.started_at, snapshot.work_day.timezone)
+        setDraft({ ...draft, from: originalMinute, to: originalMinute, resetToZero: true }); setValidation(null)
+      }}>Sett arbeidstid til 0 min</button>
       <p className="timer-meta" role="status">Arbeidstid etter endring: {preview ?? 'Velg gyldige tidspunkt'}</p>
-      <p className="timer-meta">Samme start og slutt gir 0 min. Arbeidsdagen og dagsgrensen endres ikke.{finishOnly && ' Etter lagring er Flow pauset. Fortsett må velges eksplisitt.'}</p>
+      <p className="timer-meta">{draft.resetToZero ? 'Nullstilling valgt: start beholdes og slutt settes til eksakt opprinnelig start, inkludert sekunder og mikrosekunder. Endre et tidsfelt for å oppheve valget.' : 'Nullstilling bruker eksakt opprinnelig start som slutt, ikke det viste minuttet. Velg Lagre korrigering for å lagre.'} Arbeidsdagen og dagsgrensen endres ikke.{finishOnly && ' Etter lagring er Flow pauset. Fortsett må velges eksplisitt.'}</p>
       <button type="submit">{busy ? 'Lagrer og kontrollerer …' : 'Lagre korrigering'}</button>
     </fieldset>
     {(validation || error) && <p role="alert" className="auth-error">{validation ?? error}</p>}

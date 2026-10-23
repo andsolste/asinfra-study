@@ -5,7 +5,7 @@ import type { FlowCatalog, FlowSnapshot } from '../lib/flow-work'
 import type { NativeSegmentCorrection } from '../lib/native-period'
 import { activityName } from '../lib/flow-work'
 import { dateLabel, validZone } from '../lib/flow-statistics'
-import { dayTimeline, nativeHistoryWork } from '../lib/flow-history'
+import { dayTimeline, nativeHistoryWork, withNativeEditorRow } from '../lib/flow-history'
 import type { FlowHistoryEntry } from '../lib/flow-history'
 import type { FlowWorkSegment } from '../types/flow'
 import { formatDuration } from '../lib/study-sessions'
@@ -29,13 +29,15 @@ export default function FlowHistory({ data, subjects, catalog, onCorrect = data.
   const editorOpener = useRef<HTMLElement | null>(null)
   const editorRow = useRef<string | null>(null)
   const busy = data.mutation !== null, disabled = busy || data.status !== 'ready' || data.loadingMore
+  const rows = withNativeEditorRow(data.rows, segment?.snapshot ?? null)
   const legacyTime = (iso: string) => validZone(data.timezone) ? localTime(iso, data.timezone!) : iso
   function close() {
+    const rowRemains = data.status === 'ready' && data.rows.some(row => row.key === editorRow.current)
     setEditing(null); setSegment(null)
     requestAnimationFrame(() => {
       const opener = editorOpener.current
-      if (opener?.isConnected && opener.getClientRects().length && !opener.matches(':disabled')) opener.focus()
-      else (document.getElementById('history-' + editorRow.current) ?? heading.current)?.focus()
+      if (rowRemains && opener?.isConnected && opener.getClientRects().length && !opener.matches(':disabled')) opener.focus()
+      else (rowRemains ? document.getElementById('history-' + editorRow.current) ?? heading.current : heading.current)?.focus()
     })
   }
   useEffect(() => { if (editing && data.status === 'ready' && !data.rows.some(r => r.key === editing)) close() }, [editing, data.status, data.rows])
@@ -50,8 +52,8 @@ export default function FlowHistory({ data, subjects, catalog, onCorrect = data.
     <p role="status">{data.status === 'loading' ? data.rows.length ? 'Oppdaterer arbeidsloggen …' : 'Henter arbeidslogg …' : busy ? 'Lagrer og kontrollerer …' : data.loadingMore ? 'Henter flere …' : data.notice}</p>
     {data.error && <p role="alert" className="auth-error">{data.error}</p>}
     {data.listError && <div role="alert"><p className="auth-error">{data.listError}</p><button type="button" disabled={busy} onClick={() => { close(); void data.reload() }}>Prøv igjen</button></div>}
-    {data.status === 'ready' && !data.rows.length && <p>Ingen avsluttede arbeidsdager eller tidligere registreringer ennå.</p>}
-    <ul className="history-list" ref={list}>{data.rows.map(entry => <li key={entry.key}><article aria-labelledby={'history-' + entry.key}>
+    {data.status === 'ready' && !rows.length && <p>Ingen avsluttede arbeidsdager eller tidligere registreringer ennå.</p>}
+    <ul className="history-list" ref={list}>{rows.map(entry => <li key={entry.key}><article aria-labelledby={'history-' + entry.key}>
       {entry.source === 'flow' ? <>
         <header className="history-entry-heading"><div className="history-entry-info"><h3 id={'history-' + entry.key} tabIndex={-1}>{dateLabel(entry.snapshot.work_day.logical_date)}</h3>
           <p className="history-date">Flow-dag{entry.snapshot.segments.length > 0 && ` · ${dayAreas(entry.snapshot.segments, catalog)}`}</p>

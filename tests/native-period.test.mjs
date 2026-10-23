@@ -6,9 +6,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nativeDraft, nativeLocalMinute, nativeMinuteInstant, buildNativeCorrection, nativeCorrectionWork, interruptedPeriod } from '../src/lib/native-period.ts'
-import { createFlowHistoryApi, NativeCorrectionError, nativeHistoryWork } from '../src/lib/flow-history.ts'
+import { createFlowHistoryApi, NativeCorrectionError, nativeHistoryWork, mapFlowHistoryPage, withNativeEditorRow } from '../src/lib/flow-history.ts'
 import { createFlowHistoryStore } from '../src/lib/flow-history-store.ts'
 import { mapFlowSnapshot } from '../src/lib/flow-work.ts'
+import { timestampMicroseconds } from '../src/lib/time-precision.ts'
 
 const id = n => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const now = Date.parse('2026-10-22T22:30:00Z'), server = new Date(now).toISOString(), tick = () => new Promise(r => setImmediate(r))
@@ -55,6 +56,36 @@ test('changing start, end or attribution preserves every untouched field and com
   assert.throws(() => input(s, { area: id(9) }), /Oppgaven må tilhøre/)
   const result = input(s, { area: '', task: '' }); assert.equal(result.desired.task_id, null)
   assert.equal(result.desired.started_at, s.segments[0].started_at); assert.equal(result.desired.ended_at, s.segments[0].ended_at)
+})
+for (const open of [true, false]) test(`explicit zero reset preserves exact original start and frozen expected state (${open ? 'open' : 'closed'})`, () => {
+  const s = snapshot(open), original = structuredClone(s.segments[0])
+  if (open) assert.throws(() => input(s, { to: '2026-10-22T18:00' }), /arbeidsdagen/)
+  const reset = input(s, { from: '2026-10-22T18:15', to: '2026-10-22T20:15', resetToZero: true })
+  assert.equal(reset.desired.started_at, original.started_at)
+  assert.equal(reset.desired.ended_at, original.started_at)
+  assert.equal(reset.expected.started_at, original.started_at); assert.equal(reset.expected.ended_at, original.ended_at)
+  assert.equal(reset.expected.area_id, original.area_id); assert.equal(reset.expected.task_id, original.task_id)
+  assert.equal(nativeCorrectionWork(reset), 0); assert.deepEqual(s.segments[0], original)
+  const manual = input(s, { to: '2026-10-22T20:15', resetToZero: false })
+  assert.equal(manual.desired.ended_at, '2026-10-22T20:15:00.000Z'); assert.equal(manual.desired.started_at, original.started_at)
+})
+test('identical displayed minutes never imply zero: retain distinct untouched microseconds and repeated DST instants', () => {
+  const s = snapshot()
+  s.segments[0].ended_at = '2026-10-22T18:00:03.654321Z'
+  assert.equal(nativeDraft(s, s.segments[0]).from, nativeDraft(s, s.segments[0]).to)
+  const unchanged = input(s)
+  assert.equal(unchanged.desired.started_at, '2026-10-22T18:00:03.123456Z')
+  assert.equal(unchanged.desired.ended_at, '2026-10-22T18:00:03.654321Z')
+  assert.equal(timestampMicroseconds(unchanged.desired.ended_at) - timestampMicroseconds(unchanged.desired.started_at), 530865n)
+  assert.equal(nativeCorrectionWork(unchanged), 530)
+  s.work_day.timezone = 'Europe/Oslo'; s.work_day.started_at = '2026-10-24T04:00:00Z'; s.work_day.cutoff_at = s.work_day.ended_at = '2026-10-25T03:00:00Z'
+  s.segments[0].started_at = '2026-10-25T02:30:03.123456+02:00'; s.segments[0].ended_at = '2026-10-25T02:30:03.123456+01:00'
+  const dstDraft = nativeDraft(s, s.segments[0]); assert.equal(dstDraft.from, dstDraft.to)
+  const dstNow = Date.parse('2026-10-26T12:00:00Z')
+  const dst = buildNativeCorrection(s, s.segments[0], dstDraft, dstNow, catalog)
+  assert.equal(nativeCorrectionWork(dst), 3600000)
+  const zero = buildNativeCorrection(s, s.segments[0], { ...dstDraft, resetToZero: true }, dstNow, catalog)
+  assert.equal(zero.desired.ended_at, s.segments[0].started_at); assert.equal(nativeCorrectionWork(zero), 0)
 })
 test('zero, touching and disjoint corrections work; future/bounds/positive overlap are rejected', () => {
   const s = snapshot(); s.segments[0].started_at = s.work_day.started_at = '2026-10-22T18:00:00Z'
@@ -150,6 +181,67 @@ test('late recovery read after disconnect cannot publish a confirmation into a s
   const before = f.store.getSnapshot(), s = snapshot(); s.segments[0] = { ...s.segments[0], ...f.edit.desired }
   resolve(s); assert.equal(await pending, false); assert.equal(f.store.getSnapshot(), before)
 })
+function paginatedFixture() {
+  const rows = Array.from({ length: 28 }, (_, i) => {
+    const s = snapshot(), date = new Date(Date.UTC(2026, 9, 21 - i)).toISOString().slice(0, 10)
+    const next = new Date(Date.UTC(2026, 9, 22 - i)).toISOString().slice(0, 10)
+    const from = date + 'T18:00:03.123456Z', dayId = id(100 + i), segmentId = id(200 + i)
+    s.work_day = { ...s.work_day, id: dayId, logical_date: date, started_at: from, created_at: from, boundary_at: date + 'T04:00:00Z', cutoff_at: next + 'T04:00:00Z', ended_at: next + 'T04:00:00Z' }
+    s.segments = [{ ...s.segments[0], id: segmentId, work_day_id: dayId, started_at: from, created_at: from, ended_at: date + 'T22:00:04.654321Z' }]
+    return { source: 'flow', id: dayId, key: 'flow:' + dayId, started_at: from, snapshot: s }
+  })
+  const calls = [], writes = []; let mode = 'validation'
+  const api = {
+    list: async cursor => {
+      calls.push(cursor)
+      const index = cursor ? rows.findIndex(row => row.id === cursor.id) + 1 : 0, page = rows.slice(index, index + 25), last = page.at(-1)
+      return mapFlowHistoryPage({ rows: page, server_time: server, next_cursor: index + page.length < rows.length ? { at: last.started_at, source: last.source, id: last.id } : null })
+    },
+    statistics: async () => ({ total: 0, server_time: server, period: { kind: 'total', anchor: null } }),
+    area: async () => ({ total: { total: 0, server_time: server } }),
+    nativeSnapshot: async dayId => rows.find(row => row.id === dayId).snapshot,
+    correctNative: async input => {
+      writes.push(structuredClone(input))
+      const row = rows.find(row => row.id === input.dayId)
+      if (mode === 'success') { row.snapshot = { ...row.snapshot, segments: [{ ...row.snapshot.segments[0], ...input.desired }] }; return row.snapshot }
+      if (mode === 'stale' || mode === 'unknown') row.snapshot = { ...row.snapshot, segments: [{ ...row.snapshot.segments[0], ended_at: row.snapshot.work_day.logical_date + 'T21:00:03.333333Z' }] }
+      throw new NativeCorrectionError(mode === 'stale' ? 'conflict' : mode, 'Feil fra server')
+    },
+  }
+  const store = createFlowHistoryStore(api, 'UTC')
+  return { store, rows, calls, writes, setMode: next => { mode = next } }
+}
+for (const mode of ['validation', 'stale', 'unknown']) test(`paginated ${mode}: keep frozen editor row outside page one, preserve draft/guards and allow explicit cancel/reopen`, async t => {
+  const f = paginatedFixture(); t.after(() => f.store.disconnect()); f.store.connect(); await tick()
+  assert.equal(f.store.getSnapshot().rows.length, 25); await f.store.more(); assert.equal(f.store.getSnapshot().rows.length, 28)
+  const frozen = f.store.getSnapshot().rows[25].snapshot, original = frozen.segments[0]
+  const draft = { ...nativeDraft(frozen, original), to: frozen.work_day.logical_date + 'T20:15' }, expected = structuredClone(input(frozen, draft).expected)
+  f.setMode(mode); assert.equal(await f.store.correctNative(input(frozen, draft)), false)
+  const fresh = f.store.getSnapshot()
+  assert.equal(fresh.rows.length, 25); assert.equal(fresh.rows.some(row => row.id === frozen.work_day.id), false)
+  const visible = withNativeEditorRow(fresh.rows, frozen)
+  assert.equal(visible.length, 26); assert.equal(visible.at(-1).snapshot, frozen); assert.equal(fresh.rows.length, 25)
+  assert.deepEqual(input(frozen, draft).expected, expected); assert.equal(draft.to, frozen.work_day.logical_date + 'T20:15')
+  assert.equal(fresh.correctionBlocked, mode === 'validation' ? null : original.id)
+  await f.store.refresh(); assert.equal(withNativeEditorRow(f.store.getSnapshot().rows, frozen).at(-1).snapshot, frozen)
+  if (mode === 'validation') {
+    f.setMode('success'); assert.equal(await f.store.correctNative(input(frozen, { ...draft, to: frozen.work_day.logical_date + 'T19:45' })), true)
+    assert.deepEqual(f.writes[1].expected, expected)
+  } else {
+    assert.equal(await f.store.correctNative(input(frozen, draft)), false); assert.equal(f.writes.length, 1)
+  }
+  // Cancelling removes only the pinned presentation row. The server cursor and
+  // new edit's snapshot still come from freshly fetched pages, never the draft.
+  const cancelled = withNativeEditorRow(f.store.getSnapshot().rows, null)
+  assert.equal(cancelled.length, 25); await f.store.more()
+  const reread = f.store.getSnapshot().rows.find(row => row.id === frozen.work_day.id).snapshot
+  const duringEdit = withNativeEditorRow(f.store.getSnapshot().rows, frozen)
+  assert.equal(duringEdit.filter(row => row.id === frozen.work_day.id).length, 1)
+  assert.equal(duringEdit.find(row => row.id === frozen.work_day.id).snapshot, frozen)
+  if (mode !== 'validation') assert.notEqual(reread.segments[0].ended_at, expected.ended_at)
+  f.store.prepareCorrection(); assert.equal(f.store.getSnapshot().correctionBlocked, null)
+  assert.equal(input(reread).expected.ended_at, reread.segments[0].ended_at)
+})
 test('real native form uses fieldset/labels, stored zone and minute inputs; forgotten end starts blank and activity stays readonly', { timeout: 30000 }, async t => {
   const vite = await createServer({ configFile: false, envFile: false, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true, hmr: false }, plugins: [react()] }); t.after(() => vite.close())
   const { default: Form } = await vite.ssrLoadModule('/src/components/NativePeriodForm.tsx')
@@ -158,9 +250,11 @@ test('real native form uses fieldset/labels, stored zone and minute inputs; forg
   assert.match(html, /<fieldset[^>]*aria-describedby/); assert.match(html, /<legend>Rediger arbeidsperiode/)
   assert.equal((html.match(/step="60"/g) ?? []).length, 2); assert.match(html, /Tidssone: UTC/)
   assert.match(html, /Arkivert/); assert.match(html, /Fullført/); assert.match(html, /Lagre korrigering/); assert.doesNotMatch(html, /Slett/)
+  assert.match(html, /aria-pressed="false">Sett arbeidstid til 0 min/)
   const s = snapshot(true), finish = renderToStaticMarkup(createElement(Form, { ...props, snapshot: s, segment: s.segments[0], finishOnly: true }))
   assert.match(finish, /Når sluttet du å jobbe/); assert.match(finish, /Sluttet å jobbe/); assert.match(finish, /value=""/)
   assert.doesNotMatch(finish, /<select|>Fra</); assert.equal((finish.match(/type="datetime-local"/g) ?? []).length, 1)
+  assert.match(finish, /Sett arbeidstid til 0 min/)
   const blocked = renderToStaticMarkup(createElement(Form, { ...props, blocked: true, error: 'Arbeidsperioden er endret' }))
   assert.match(blocked, /<fieldset disabled/); assert.match(blocked, /role="alert"/); assert.match(blocked, /åpne editoren/)
 })

@@ -28,6 +28,15 @@ export type FlowHistoryEntry = { key: string; started_at: string } & (
   | { source: 'legacy-study'; id: string; snapshot: HistoryEntry }
 )
 export type FlowHistoryPage = { rows: FlowHistoryEntry[]; next_cursor: HistoryCursor | null; server_time: string }
+export function withNativeEditorRow(rows: FlowHistoryEntry[], snapshot: FlowSnapshot | null): FlowHistoryEntry[] {
+  if (!snapshot) return rows
+  const id = snapshot.work_day.id, key = 'flow:' + id
+  const frozen: FlowHistoryEntry = { source: 'flow', id, key, started_at: snapshot.work_day.started_at, snapshot }
+  // Presentation only: keep the original editor mounted, even when a refreshed
+  // first page no longer contains it. Never merge this row into server paging
+  // state or replace the draft's expected values with a newer snapshot.
+  return rows.some(row => row.key === key) ? rows.map(row => row.key === key ? frozen : row) : [...rows, frozen]
+}
 export type AttributionEdit = { segmentId: string; areaId: string | null; taskId: string | null; expectedAreaId: string | null; expectedTaskId: string | null }
 export function mapFlowHistoryPage(value: unknown): FlowHistoryPage {
   const row = record(value), server = absoluteTime(row.server_time)
