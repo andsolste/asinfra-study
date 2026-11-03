@@ -1,11 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { FlowTask } from '../types/flow.ts'
+import type { FlowTask, TaskPriority } from '../types/flow.ts'
 import { fromLocalDateTime, toLocalDateTime } from './history-time.ts'
 import { mapFlowTask } from './flow-work.ts'
 import type { FlowSnapshot } from './flow-work.ts'
 import { timestampMicroseconds as micros, serverClockMicroseconds, minMicroseconds, durationMilliseconds, segmentMicroseconds } from './time-precision.ts'
 
-export type TaskFields = { title: string; description: string; areaId: string | null; deadline: string | null }
+export type TaskFields = { title: string; description: string; areaId: string | null; deadline: string | null;
+  weekStart?: string | null; priority?: TaskPriority }
 export type TaskCommand =
   | ({ kind: 'save-task'; taskId: string; expected: string | null } & TaskFields)
   | { kind: 'status-task'; taskId: string; expected: string; status: 'active' | 'completed' }
@@ -67,13 +68,15 @@ export function taskApplied(command: TaskCommand, tasks: readonly FlowTask[]) {
   const task = tasks.find(t => t.id === command.taskId)
   return task && (command.kind === 'status-task' ? task.status === command.status
     : task.title === command.title && task.description === command.description && task.area_id === command.areaId
-      && (task.deadline_at === command.deadline || (task.deadline_at && command.deadline && Date.parse(task.deadline_at) === Date.parse(command.deadline))))
+      && (task.deadline_at === command.deadline || (task.deadline_at && command.deadline && Date.parse(task.deadline_at) === Date.parse(command.deadline)))
+      && (command.weekStart === undefined || task.week_start === command.weekStart && task.priority === command.priority))
 }
 export function createTaskApi(client: Pick<SupabaseClient, 'rpc'>) {
   return {
     async mutate(command: TaskCommand, signal: AbortSignal) {
       const args = command.kind === 'save-task' ? { p_task_id: command.taskId, p_title: command.title, p_description: command.description,
-        p_area_id: command.areaId, p_deadline_at: command.deadline, p_expected_updated_at: command.expected }
+        p_area_id: command.areaId, p_deadline_at: command.deadline, p_expected_updated_at: command.expected,
+        ...(command.weekStart !== undefined ? { p_week_start: command.weekStart, p_priority: command.priority } : {}) }
         : { p_task_id: command.taskId, p_status: command.status, p_expected_updated_at: command.expected }
       const { data, error } = await client.rpc(command.kind === 'save-task' ? 'flow_task_save' : 'flow_task_status', args).abortSignal(signal)
       if (error) throw new TaskActionError(error.message === 'Pause before moving the active task' ? 'Pause eller bytt aktivitet før du flytter oppgaven til et annet område.'

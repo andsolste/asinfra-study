@@ -3,6 +3,7 @@ import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
 import type { FlowTask } from '../types/flow'
 import { taskApplied, taskDeadlineForDate, taskDeadlineInput, taskFields } from '../lib/flow-tasks'
 import type { TaskCommand } from '../lib/flow-tasks'
+import { planningFields, weekInput, priorityLabels } from '../lib/task-planning'
 
 export default function TaskForm({ data, task, onSaved, onCancel }: {
   data: FlowWorkspaceData; task: FlowTask | null; onSaved: (id: string) => void; onCancel: () => void
@@ -15,6 +16,8 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
   const [description, setDescription] = useState(task?.description ?? '')
   const [area, setArea] = useState(task?.area_id ?? '')
   const [deadline, setDeadline] = useState(() => task?.deadline_at ? taskDeadlineInput(task.deadline_at) : '')
+  const [week, setWeek] = useState(() => task?.week_start ? weekInput(task.week_start) : '')
+  const [priority, setPriority] = useState(task?.priority ?? 'normal')
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState<{ command: TaskCommand; draft: string[] } | null>(null)
   const disabled = !['idle', 'running', 'paused'].includes(data.phase)
@@ -28,15 +31,15 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
   useEffect(() => {
     // A retry/status refresh may confirm an earlier save after this form's
     // original request returned. Navigate only if no newer draft was typed.
-    if (submitted && !disabled && [title, description, area, deadline].every((value, i) => value === submitted.draft[i])
+    if (submitted && !disabled && [title, description, area, deadline, week, priority].every((value, i) => value === submitted.draft[i])
       && taskApplied(submitted.command, data.catalog.tasks)) onSaved(id)
-  }, [submitted, disabled, title, description, area, deadline, data.catalog.tasks, id, onSaved])
+  }, [submitted, disabled, title, description, area, deadline, week, priority, data.catalog.tasks, id, onSaved])
   async function save(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null)
     try {
       const fields = taskFields(title, description, area, deadline, original?.deadline_at ?? undefined)
-      const command: TaskCommand = { kind: 'save-task', taskId: id, expected: original?.updated_at ?? null, ...fields }
-      setSubmitted({ command, draft: [title, description, area, deadline] })
+      const command: TaskCommand = { kind: 'save-task', taskId: id, expected: original?.updated_at ?? null, ...fields, ...planningFields(week, priority) }
+      setSubmitted({ command, draft: [title, description, area, deadline, week, priority] })
       if (await data.dispatch(command)) onSaved(id)
     } catch (error) { setError(error instanceof Error ? error.message : 'Kontroller oppgaven.') }
   }
@@ -55,6 +58,18 @@ export default function TaskForm({ data, task, onSaved, onCancel }: {
         {area && (!oldArea || oldArea.is_archived) && <p className="timer-meta">Velg et aktivt område eller «Annet» for å gjøre oppgaven startbar. Uendret tilknytning beholdes ved lagring.</p>}
       </div>
       <div className="auth-field"><label htmlFor="task-description">Beskrivelse (valgfritt)</label><textarea id="task-description" rows={3} maxLength={2000} value={description} onChange={e => setDescription(e.target.value)} /></div>
+      <div className="task-planning-fields">
+        <div className="auth-field"><label htmlFor="task-week">Planlagt uke (valgfritt)</label>
+          <input id="task-week" type="week" value={week} onChange={e => setWeek(e.target.value)} aria-describedby="task-week-hint" />
+          <p id="task-week-hint" className="timer-meta">Mandag–søndag. Uken er en plan, ikke en frist. Format: 2026-W45.</p>
+          {week && <button type="button" className="text-button" onClick={() => setWeek('')}>Fjern uke</button>}
+        </div>
+        <div className="auth-field"><label htmlFor="task-priority">Prioritet</label>
+          <select id="task-priority" value={priority} onChange={e => setPriority(e.target.value as typeof priority)}>
+            {Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </div>
+      </div>
       <div className="auth-field"><label htmlFor="task-deadline">Fristdato (valgfritt, lokal tid)</label>
         <input id="task-deadline" type="date" value={deadline.slice(0, 10)} onChange={e => setDeadline(taskDeadlineForDate(e.target.value, deadline))} aria-describedby="task-deadline-hint" />
         <label htmlFor="task-deadline-time">Klokkeslett</label>
