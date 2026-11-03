@@ -119,7 +119,7 @@ export default function Account({ session }: { session: Session }) {
         {/* Keep workspace/form state across views; only export is intentionally
             unmounted on close so its snapshot/jobs are cancelled as before. */}
         <div className="work-layout" hidden={location.view !== 'work'}>
-          <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} mutationBusy={history.mutation !== null} />
+          <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} mutationBusy={history.mutation !== null} history={history} onCorrect={correctNative} />
           <TaskQueue data={flow} onOpen={openTask} onCreate={() => requestTask({ id: null, create: true })} />
           <WeeklyTasks data={flow} onOpen={openTask} />
         </div>
