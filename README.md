@@ -108,6 +108,12 @@ Arkivert/fullført/utilgjengelig historisk tilknytning kan beholdes urørt; endr
 oppgave må passe området. Samme absolutte start/slutt gir 0 min uten sletting.
 Arbeidsdagens ID, dato, start, tidssone og frosne grenser kan ikke redigeres.
 
+Samme editor finnes under **Arbeid → Dagsdetaljer → Rediger** ved avsluttede
+arbeidsperioder. Pågående perioder må pauses først. Dialogen beholder utkast og
+originalverdier ved bakgrunnsoppdatering, og bruker samme konflikt-/recoveryvern
+som Arbeidsloggen. Etter lagring hentes dagsdetaljer, arbeidstid og oppgavetall
+fra serveren. Det innføres ingen ny RPC eller endring i timerregistreringen.
+
 **Korriger tid** i avbruddsvarselet åpnes bare ved eksplisitt klikk for akkurat det
 observerte åpne segmentet. Aktivitet/start er skrivebeskyttet og sluttfeltet er
 tomt: brukeren velger når arbeidet faktisk sluttet. Lagring lukker perioden og

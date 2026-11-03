@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
+import type { FlowHistoryData } from '../hooks/useFlowHistory'
 import { activityName, activityUsable, flowDurations } from '../lib/flow-work'
 import type { FlowActivity } from '../lib/flow-work'
+import { dayDetails } from '../lib/day-details'
+import type { DayPeriodEditor } from '../lib/day-details'
+import type { NativeSegmentCorrection } from '../lib/native-period'
 import { pauseActivityCommand, startActivityCommand } from '../lib/flow-activity'
 import { formatDuration } from '../lib/study-sessions'
 import DetailPanel from './DetailPanel'
 import FlowFeedback from './FlowFeedback'
+import NativePeriodForm from './NativePeriodForm'
 
-export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus, mutationBusy = false }: {
+export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus, mutationBusy = false, history, onCorrect }: {
   data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void; active?: boolean; fallbackFocus?: HTMLElement | null; mutationBusy?: boolean
+  history?: FlowHistoryData; onCorrect?: (input: NativeSegmentCorrection) => Promise<boolean>
 }) {
+  const [editor, setEditor] = useState<DayPeriodEditor | null>(null)
+  const [correcting, setCorrecting] = useState(false)
   const current = data.data?.current ?? null
   const open = current?.segments.find(s => s.ended_at === null)
   const last = open ?? current?.segments.at(-1)
@@ -19,16 +27,20 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
   const serverNow = Math.max(data.now, data.data ? Date.parse(data.data.server_time) : 0)
   const totals = current ? flowDurations(current, serverNow) : { work: 0, elapsed: 0, pause: 0, current: 0 }
   const periodTime = open ? totals.current : current && last ? flowDurations({ ...current, segments: [last] }, serverNow).work : 0
-  const detailDay = current ?? data.closed
+  const { snapshot: detailDay, stale: staleEditor } = dayDetails(current, data.closed ?? null, history?.rows ?? [], editor, ['running', 'paused', 'idle'].includes(data.phase))
   const detailTotals = detailDay ? flowDurations(detailDay, serverNow) : totals
   const busy = data.phase === 'loading' || data.phase === 'recovering'
-  const disabled = busy || data.phase === 'error' || mutationBusy
+  const panelBusy = busy || mutationBusy || correcting || !!history?.mutation
+  const disabled = busy || data.phase === 'error' || mutationBusy || correcting
+  const correctionUnavailable = disabled || !!data.pending || history?.status !== 'ready' || !!history?.loadingMore || !!history?.mutation
   const [panel, setPanel] = useState<'activity' | 'day' | null>(null)
   const [areaId, setAreaId] = useState('')
   const [taskId, setTaskId] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const heading = useRef<HTMLHeadingElement | null>(null)
+  const periodHeading = useRef<HTMLHeadingElement | null>(null)
+  const editorOpener = useRef<HTMLButtonElement | null>(null)
   const legacyWasActive = useRef(false)
   const activeAreas = data.catalog.areas.filter(a => !a.is_archived)
   const tasks = data.catalog.tasks.filter(t => t.status === 'active' && t.area_id === (areaId || null))
@@ -36,11 +48,27 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
     timeZone: detailDay?.work_day.timezone, dateStyle: 'short', timeStyle: 'short',
   })
   useEffect(() => { void data.reload() }, [organizationVersion, data.reload])
-  useEffect(() => { if (!active && !busy) setPanel(null) }, [active, busy])
+  useEffect(() => { if (!active && !panelBusy) { setPanel(null); setEditor(null) } }, [active, panelBusy])
   useEffect(() => {
     if (data.data?.legacy_active) legacyWasActive.current = true
     else if (current && legacyWasActive.current) { legacyWasActive.current = false; onCutover() }
   }, [data.data, current, onCutover])
+
+  function closePanel() { setPanel(null); setEditor(null) }
+  function closeEditor() {
+    setEditor(null)
+    requestAnimationFrame(() => {
+      const target = editorOpener.current
+      if (target?.isConnected && target.getClientRects().length && !target.disabled) target.focus()
+      else periodHeading.current?.focus()
+    })
+  }
+  async function correctPeriod(input: NativeSegmentCorrection) {
+    if (staleEditor || correctionUnavailable || !onCorrect) return false
+    setCorrecting(true)
+    try { return await onCorrect(input) }
+    finally { setCorrecting(false) }
+  }
 
   function showActivity(element: HTMLElement) {
     opener.current = element; setValidation(null)
@@ -103,7 +131,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
       <button type="button" className="text-button timer-refresh" disabled={busy} onClick={() => void data.reload()}>Hent status på nytt</button>
     </section>
     <DetailPanel id="flow-details" open={panel !== null} title={panel === 'day' ? 'Dagsdetaljer' : 'Velg aktivitet'}
-      busy={busy} hasForms={false} returnFocus={opener.current} fallbackFocus={active ? heading.current : fallbackFocus} onClose={() => setPanel(null)}>
+      busy={panelBusy} hasForms={editor !== null} returnFocus={opener.current} fallbackFocus={active ? heading.current : fallbackFocus} onClose={closePanel}>
       {panel === 'activity' && <form className="flow-picker" onSubmit={choose}>
         {notice}
         <fieldset disabled={disabled}><legend className="sr-only">Velg hva du skal jobbe med</legend>
@@ -122,17 +150,33 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
         {validation && <p className="auth-error" role="alert">{validation}</p>}
       </form>}
       {panel === 'day' && <div className="flow-day-details">
+        {data.error && notice}
         {detailDay ? <>
           <p>{detailDay.work_day.logical_date} · {detailDay.work_day.timezone}{detailDay.work_day.ended_at && ' · Sist avsluttede dag i denne fanen'}</p>
           <p className="timer-meta">Dagen avsluttes ved {local(detailDay.work_day.cutoff_at)}. Pause er nok når du er ferdig for nå.</p>
           <dl className="flow-day-metrics"><div><dt>Faktisk arbeidstid</dt><dd>{formatDuration(detailTotals.work)}</dd></div>
             <div><dt>Dagen startet</dt><dd>{local(detailDay.work_day.started_at)}</dd></div>
             <div><dt>Pause</dt><dd>{formatDuration(detailTotals.pause)}</dd></div></dl>
-          <h3>Arbeidsperioder</h3><p className="timer-meta">Gap mellom arbeidsperiodene er pauser. Tiden før første aktivitet teller ikke.</p>
+          <h3 ref={periodHeading} tabIndex={-1}>Arbeidsperioder</h3><p className="timer-meta">Gap mellom arbeidsperiodene er pauser. Tiden før første aktivitet teller ikke. Pause en pågående periode før du redigerer den.</p>
+          {history?.listError && <div role="alert"><p className="auth-error">{history.listError}</p>
+            <button type="button" className="secondary-button" disabled={panelBusy} onClick={() => { void history.reload(); void data.reload() }}>Hent grunnlag på nytt</button></div>}
+          {history?.notice && <p role="status">{history.notice}</p>}
           <ol className="flow-period-list">{detailDay.segments.map(s => {
             const label = activityName({ areaId: s.area_id, taskId: s.task_id }, data.catalog)
             return <li key={s.id}><p><time dateTime={s.started_at}>{local(s.started_at)}</time> → {s.ended_at ? <time dateTime={s.ended_at}>{local(s.ended_at)}</time> : 'Pågår'}</p>
-              <strong>{label.area}</strong>{s.task_id && <p>{label.task}</p>}</li>
+              <strong>{label.area}</strong>{s.task_id && <p>{label.task}</p>}
+              {s.ended_at && history && onCorrect && <button type="button" className="text-button" disabled={correctionUnavailable || !!editor}
+                aria-label={`Rediger arbeidsperiode fra ${local(s.started_at)}`}
+                onClick={event => {
+                  if (correctionUnavailable || editor) return
+                  editorOpener.current = event.currentTarget; history.prepareCorrection(); setEditor({ snapshot: detailDay, segment: s })
+                }}>Rediger</button>}
+              {editor?.segment.id === s.id && history && <NativePeriodForm key={s.id} snapshot={editor.snapshot} segment={editor.segment}
+                catalog={data.catalog} now={() => serverNow} busy={correcting || history.mutation !== null}
+                blocked={staleEditor || history.correctionBlocked === s.id} disabled={correctionUnavailable}
+                error={staleEditor ? 'Arbeidsperioden er endret. Avbryt og åpne editoren fra oppdatert status.' : history.error}
+                onSave={correctPeriod} onClose={closeEditor} />}
+            </li>
           })}</ol>
         </> : <p>Ingen aktiv Flow-dag. Arbeid i dag er 0 min. En ny dag opprettes først når du begynner å arbeide.</p>}
       </div>}
