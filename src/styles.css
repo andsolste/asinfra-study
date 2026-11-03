@@ -58,10 +58,15 @@ h2:target { color: var(--purple-light); }
 .flow-navigation a:hover, .insights-navigation a:hover { color: var(--text-primary); background: var(--surface-elevated); }
 .flow-navigation a[aria-current="page"], .insights-navigation a[aria-current="page"] { color: var(--text-primary); background: var(--surface-elevated); box-shadow: inset 0 -2px var(--purple-light); }
 .account-menu { position: relative; }
-.account-menu > summary { display: flex; align-items: center; min-height: 44px; padding: .625rem 1rem; border: 1px solid var(--border); border-radius: var(--control-radius); cursor: pointer; font-size: .9rem; color: var(--text-secondary); }
-.account-menu > summary::after { content: '⌄'; margin-left: .625rem; }
+.account-menu > summary { display: flex; align-items: center; gap: .625rem; min-height: 44px; padding: .625rem 1rem; border: 1px solid var(--border); border-radius: var(--control-radius); list-style: none; cursor: pointer; font-size: .9rem; color: var(--text-secondary); transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
 .account-menu > summary::-webkit-details-marker { display: none; }
-.account-menu[open] > summary { border-color: var(--purple-light); }
+.account-menu > summary::after { content: ''; flex: 0 0 .5rem; width: .5rem; height: .5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-.125rem) rotate(45deg); transition: transform .15s ease; }
+.account-menu > summary:hover { background: var(--surface-elevated); color: var(--text-primary); }
+.account-menu[open] > summary { border-color: var(--purple-light); background: var(--surface-elevated); color: var(--text-primary); }
+.account-menu[open] > summary::after { transform: translateY(.125rem) rotate(225deg); }
+@media (prefers-reduced-motion: reduce) {
+  .account-menu > summary, .account-menu > summary::after { transition: none; }
+}
 .account-menu-content { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 9; display: grid; gap: var(--space-2); width: min(19rem, calc(100vw - 1.5rem)); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-elevated); }
 .account-menu-content .account-email { margin-bottom: .5rem; }
 .account-menu-content button { text-align: left; }
