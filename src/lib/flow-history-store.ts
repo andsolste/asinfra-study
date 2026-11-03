@@ -2,13 +2,16 @@ import type { createFlowHistoryApi, AttributionEdit, FlowHistoryEntry, HistoryCu
 import type { HistoryEdit } from './study-history.ts'
 import type { createStatisticsApi, FlowPeriod, FlowStatistics, AreaStatistics } from './flow-statistics.ts'
 import { browserTimezone } from './flow-work.ts'
+import { NativeCorrectionError } from './flow-history.ts'
+import { correctionMatches } from './native-period.ts'
+import type { NativeSegmentCorrection } from './native-period.ts'
 
 type Status = 'loading' | 'ready' | 'error'
 type State = {
   rows: FlowHistoryEntry[]; status: Status; listError: string | null; cursor: HistoryCursor | null; loadingMore: boolean
   period: FlowPeriod; timezone: string | null; statistics: FlowStatistics | null; statisticsStatus: Status; statisticsError: string | null
   selectedArea: { id: string | null } | null; area: AreaStatistics | null; areaStatus: Status; areaError: string | null
-  mutation: 'saving' | 'deleting' | null; error: string | null; notice: string
+  mutation: 'saving' | 'deleting' | null; error: string | null; notice: string; correctionBlocked: string | null
 }
 type Api = ReturnType<typeof createFlowHistoryApi> & ReturnType<typeof createStatisticsApi>
 type Lane = 'list' | 'statistics' | 'area' | 'write'
@@ -17,7 +20,7 @@ type Lane = 'list' | 'statistics' | 'area' | 'write'
 export function createFlowHistoryStore(api: Api, timezone: string | null = browserTimezone()) {
   let state: State = { rows: [], status: 'loading', listError: null, cursor: null, loadingMore: false,
     period: { kind: 'week', anchor: null }, timezone, statistics: null, statisticsStatus: 'loading', statisticsError: null,
-    selectedArea: null, area: null, areaStatus: 'loading', areaError: null, mutation: null, error: null, notice: '' }
+    selectedArea: null, area: null, areaStatus: 'loading', areaError: null, mutation: null, error: null, notice: '', correctionBlocked: null }
   let connected = false
   const requests: Record<Lane, AbortController | null> = { list: null, statistics: null, area: null, write: null }
   const listeners = new Set<() => void>()
@@ -69,19 +72,32 @@ export function createFlowHistoryStore(api: Api, timezone: string | null = brows
     } finally { clearTimeout(timeout); if (requests.area === controller) requests.area = null }
   }
   async function refresh() { if (connected && !requests.write) await Promise.all([list(), statistics(), area()]) }
-  async function mutate(operation: (signal: AbortSignal) => Promise<unknown>, kind: 'saving' | 'deleting') {
-    if (!connected || requests.write || state.mutation || state.status !== 'ready' || requests.list) return false
+  async function mutate(operation: (signal: AbortSignal) => Promise<unknown>, kind: 'saving' | 'deleting', native?: NativeSegmentCorrection) {
+    if (!connected || requests.write || state.mutation || state.status !== 'ready' || requests.list || native && state.correctionBlocked === native.segmentId) return false
     cancel('list'); cancel('statistics'); cancel('area')
-    const controller = start('write'), timeout = setTimeout(() => controller.abort(), 15000)
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000)
+    requests.write = controller
     update({ mutation: kind, error: null, notice: '', statistics: null, statisticsStatus: 'loading', area: null })
     let confirmed = false
     try {
       await operation(controller.signal)
       if (requests.write !== controller) return false
       confirmed = true; update({ notice: kind === 'saving' ? 'Endringene er lagret.' : 'Den eldre registreringen er slettet.' })
-    } catch {
+    } catch (error) {
       if (requests.write !== controller) return false
-      update({ error: 'Handlingen kunne ikke bekreftes. Kontroller oppdaterte data før du prøver igjen. Korrigert arbeid må ikke overlappe andre registreringer.' })
+      if (native) {
+        // An uncertain write is checked by reading canonical state, NEVER by
+        // silently replacing expected values and resending the user's draft.
+        if (!(error instanceof NativeCorrectionError) || error.kind === 'unknown') {
+          try {
+            if (!controller.signal.aborted) confirmed = correctionMatches(await api.nativeSnapshot(native.dayId, controller.signal), native)
+          } catch { /* Fresh review is required if the read is also uncertain. */ }
+        }
+        if (requests.write !== controller) return false
+        if (confirmed) update({ notice: 'Korrigeringen er bekreftet fra oppdatert status.' })
+        else update({ error: error instanceof NativeCorrectionError ? error.message : 'Korrigeringen kunne ikke bekreftes. Hent på nytt og åpne editoren igjen.',
+          correctionBlocked: error instanceof NativeCorrectionError && error.kind === 'validation' ? null : native.segmentId })
+      } else update({ error: 'Handlingen kunne ikke bekreftes. Kontroller oppdaterte data før du prøver igjen. Korrigert arbeid må ikke overlappe andre registreringer.' })
     } finally {
       clearTimeout(timeout)
       if (requests.write === controller) { requests.write = null; await refresh(); if (connected) update({ mutation: null }) }
@@ -100,5 +116,7 @@ export function createFlowHistoryStore(api: Api, timezone: string | null = brows
     editLegacy: (id: string, input: HistoryEdit) => mutate(signal => api.editLegacy(id, input, signal), 'saving'),
     removeLegacy: (id: string) => mutate(signal => api.removeLegacy(id, signal), 'deleting'),
     attribute: (input: AttributionEdit) => mutate(signal => api.attribute(input, signal), 'saving'),
+    prepareCorrection() { if (!state.mutation) update({ correctionBlocked: null, error: null, notice: '' }) },
+    correctNative: (input: NativeSegmentCorrection) => mutate(signal => api.correctNative(input, signal), 'saving', input),
   }
 }

@@ -19,6 +19,7 @@ import type { TaskRequest } from './Tasks'
 import FlowNavigation, { followFlowLink } from './FlowNavigation'
 import { useFlowNavigation } from '../hooks/useFlowNavigation'
 import { flowLocationUrl, flowViews } from '../lib/flow-navigation'
+import type { NativeSegmentCorrection } from '../lib/native-period'
 
 const detailPanels = { export: 'Eksport', subjects: 'Områder' } as const
 type Panel = keyof typeof detailPanels
@@ -76,6 +77,15 @@ export default function Account({ session }: { session: Session }) {
   }
   function openTask(id: string | null) { requestTask({ id }) }
 
+  async function correctNative(input: NativeSegmentCorrection) {
+    if (flow.pending || !['running', 'paused', 'idle'].includes(flow.phase)) return false
+    const saved = await history.correctNative(input)
+    // Re-read even after uncertainty/conflict: task totals and the current
+    // timer/recovery monitor must observe the canonical corrected segment.
+    await flow.reload()
+    return saved
+  }
+
   async function signOut() {
     if (!supabase) return
     setSigningOut(true); setError(null)
@@ -104,11 +114,11 @@ export default function Account({ session }: { session: Session }) {
       </AppHeader>
       <WorkStatus data={flow} location={location} navigate={navigate} />
       <main id="study-content" className="timer-workspace" aria-label={flowViews[location.view]} tabIndex={-1} ref={panelFallback}>
-        <FlowInterruption data={flow} />
+        <FlowInterruption data={flow} history={history} onCorrect={correctNative} />
         {/* Keep workspace/form state across views; only export is intentionally
             unmounted on close so its snapshot/jobs are cancelled as before. */}
         <div className="work-layout" hidden={location.view !== 'work'}>
-          <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} />
+          <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} mutationBusy={history.mutation !== null} />
           <TaskQueue data={flow} onOpen={openTask} onCreate={() => requestTask({ id: null, create: true })} />
         </div>
         <section id="tasks-view" className="dashboard-panel" aria-labelledby="tasks-title" hidden={location.view !== 'tasks'}>
@@ -127,7 +137,7 @@ export default function Account({ session }: { session: Session }) {
               onClick={event => showPanel('export', event.currentTarget)}>Eksporter</button>
           </div>
           <div hidden={location.insight !== 'overview'}><FlowStatistics data={history} catalog={flow.catalog} /></div>
-          <div hidden={location.insight !== 'history'}><FlowHistory data={history} subjects={subjects} catalog={flow.catalog} /></div>
+          <div hidden={location.insight !== 'history'}><FlowHistory data={history} subjects={subjects} catalog={flow.catalog} onCorrect={correctNative} correctionUnavailable={!!flow.pending || !['running', 'paused', 'idle'].includes(flow.phase)} /></div>
         </div>
       </main>
       <DetailPanel open={panel !== null} title={panel ? detailPanels[panel] : ''}

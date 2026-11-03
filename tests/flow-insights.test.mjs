@@ -94,7 +94,7 @@ test('Innsikt presentation preserves periods, sources, errors, completed minutes
     assert.equal((html.match(/class="history-periods"/g) ?? []).length, 2)
     assert.doesNotMatch(html, /<details[^>]*open=/)
     assert.match(html, /Arbeidsperiode/); assert.match(html, /Pause · 1 t/)
-    assert.match(html, /Korriger tilknytning/); assert.match(html, /Eldre registrering/)
+    assert.match(html, /Rediger arbeidsperiode/); assert.match(html, /Eldre registrering/)
     assert.match(html, /Rediger registrering/); assert.match(html, /Slett registrering/)
     assert.match(html, /Listen er paginert, ikke filtrert etter perioden/)
     assert.ok(html.indexOf('Vis tidslinje') < html.indexOf('Første aktivitet'))
