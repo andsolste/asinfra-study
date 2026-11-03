@@ -14,6 +14,7 @@ import { useSubjects } from '../hooks/useSubjects'
 import { useFlowHistory } from '../hooks/useFlowHistory'
 import { useFlowWorkDay } from '../hooks/useFlowWorkDay'
 import TaskQueue from './TaskQueue'
+import WeeklyTasks from './WeeklyTasks'
 import Tasks from './Tasks'
 import type { TaskRequest } from './Tasks'
 import FlowNavigation, { followFlowLink } from './FlowNavigation'
@@ -120,6 +121,7 @@ export default function Account({ session }: { session: Session }) {
         <div className="work-layout" hidden={location.view !== 'work'}>
           <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} mutationBusy={history.mutation !== null} />
           <TaskQueue data={flow} onOpen={openTask} onCreate={() => requestTask({ id: null, create: true })} />
+          <WeeklyTasks data={flow} onOpen={openTask} />
         </div>
         <section id="tasks-view" className="dashboard-panel" aria-labelledby="tasks-title" hidden={location.view !== 'tasks'}>
           <header className="view-heading"><p className="section-label">Oppgavehåndtering</p><h2 id="tasks-title">Oppgaver</h2></header>

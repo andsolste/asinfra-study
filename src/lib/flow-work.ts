@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FlowArea, FlowTask, FlowWorkDay, FlowWorkSegment } from '../types/flow.ts'
 import { createTaskApi } from './flow-tasks.ts'
+import { validWeekStart, priorityLabels } from './task-planning.ts'
 import { timestampMicroseconds as micros, serverClockMicroseconds, minMicroseconds, positiveMicroseconds, durationMilliseconds as milliseconds, segmentMicroseconds } from './time-precision.ts'
 
 export type FlowActivity = { areaId: string | null; taskId: string | null }
@@ -56,8 +57,12 @@ export function mapFlowArea(value: unknown): FlowArea {
 }
 export function mapFlowTask(value: unknown): FlowTask {
   const source = row(value), status = source.status, completed = optionalTime(source.completed_at)
+  // Missing fields only occur in old snapshots; explicit malformed values fail closed.
+  const week = source.week_start ?? null, priority = source.priority === undefined ? 'normal' : source.priority
+  if ((week !== null && !validWeekStart(week)) || typeof priority !== 'string' || !Object.hasOwn(priorityLabels, priority)) throw invalid()
   const fields = { id: id(source.id), area_id: optionalId(source.area_id), title: text(source.title, 200, true),
-    description: text(source.description, 2000), deadline_at: optionalTime(source.deadline_at), created_at: timestamp(source.created_at), updated_at: timestamp(source.updated_at) }
+    description: text(source.description, 2000), deadline_at: optionalTime(source.deadline_at), week_start: week,
+    priority: priority as FlowTask['priority'], created_at: timestamp(source.created_at), updated_at: timestamp(source.updated_at) }
   if (status === 'active' && completed === null) return { ...fields, status, completed_at: null }
   if (status === 'completed' && completed !== null) return { ...fields, status, completed_at: completed }
   throw invalid()
@@ -142,7 +147,7 @@ export function createFlowApi(client: Pick<SupabaseClient, 'rpc' | 'from'>) {
       }
       const [areas, tasks] = await Promise.all([
         all('flow_areas', 'id,name,code,is_archived,created_at'),
-        all('flow_tasks', 'id,area_id,title,description,deadline_at,status,completed_at,created_at,updated_at'),
+        all('flow_tasks', 'id,area_id,title,description,deadline_at,week_start,priority,status,completed_at,created_at,updated_at'),
       ])
       const mapped = { areas: areas.map(mapFlowArea), tasks: tasks.map(mapFlowTask) }
       if (new Set(mapped.areas.map(a => a.id)).size !== mapped.areas.length || new Set(mapped.tasks.map(t => t.id)).size !== mapped.tasks.length) throw invalid()

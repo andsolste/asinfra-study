@@ -9,6 +9,7 @@ import { formatDuration } from '../lib/study-sessions'
 import TaskList, { TaskStart } from './TaskList'
 import TaskForm from './TaskForm'
 import FlowFeedback from './FlowFeedback'
+import { priorityLabels, weekLabel } from '../lib/task-planning'
 
 export type TaskRequest = { id: string | null; create?: boolean }
 
@@ -33,6 +34,7 @@ function TaskDetails({ id, data, onEdit }: { id: string; data: FlowWorkspaceData
     <h3 id="task-detail-title" tabIndex={-1}>{task.title}</h3>
     <p className="task-area">{area.name}{area.archived && ' · Arkivert område'}</p>
     <p>{task.status === 'active' ? 'Aktiv' : 'Fullført'} · {deadlineLabel(task, data.now)}</p>
+    <p className="timer-meta">{task.week_start ? weekLabel(task.week_start) : 'Ingen planlagt uke'} · {priorityLabels[task.priority]} prioritet</p>
     {task.description && <p className="task-description">{task.description}</p>}
     {area.unavailable && task.status === 'active' && <p className="task-attention">Området er {area.archived ? 'arkivert' : 'utilgjengelig'}. Flytt oppgaven til et aktivt område eller fjern området for å starte den. Oppgaven kan fortsatt redigeres og fullføres.</p>}
     <dl className="flow-day-metrics">

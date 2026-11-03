@@ -618,6 +618,31 @@ Automatiserte tester erstatter ikke denne kontrollen mot ekte Auth/RLS:
     halv transition telles dobbelt. Test dette med ekte JWT/Data API og flere DB-
     forbindelser i lokal/test-Supabase; WASM-/mocktestene beviser ikke nettverkslaget.
 
+### Ukentlig planlegging
+
+Arbeid har en kompakt ukeplan med prioritet, fullføring/gjenåpning og fremdrift
+basert på eksisterende oppgavestatus. Forrige/neste/gjeldende uke bruker ISO-uker
+(mandag–søndag) i nettleserens lokale kalender, ikke timerens lagrede 04:00-dag.
+Uke og prioritet redigeres i det vanlige oppgaveskjemaet; frist er et separat felt.
+Ufullførte oppgaver fra tidligere uker kan flyttes eksplisitt til valgt uke.
+Oppgaver uten uke fungerer som før. Område, frist, status og timer flyttes ikke.
+
+Backend må deployes først: canonical `andsolste/asinfra/supabase/migrations/`
+`20261103120000_add_flow_task_week_planning.sql`. Den legger til `week_start` og
+`priority` og et kompatibelt åttearguments `flow_task_save` uten å fjerne gammel
+signatur. Den samme delte store/API-en håndterer status, ukeflytting, refresh,
+stale revisjoner og usikkert svar; ingen egen lokal progresjon lagres.
+Katalogen lastes på nytt ved fokus/tilbakekomst til fanen. Ulagrede skjemaer
+beholder opprinnelig revisjon og utkast; konflikt krever avbryt og ny åpning.
+
+Review backend → merge backend → godkjent dry-run/push og hosted verifisering →
+merge/deploy frontend. Ingen database- eller frontenddeployment inngår i PR-ene.
+Kontroller etter deployment med merkede testdata: uke 1/53 ved årsskifte,
+planlegg neste uke, fullfør/gjenåpne, flytt tidligere oppgave, fjern uke,
+reload/to faner/stale skjema, aktiv timer og 320/390 px. Frontendtestene dekker
+kalendergrenser, sortering, progress, API og recovery; backendtester eies av
+canonical repo og skal også være grønne før utrulling.
+
 ### Eksport: 24 punkter før produksjonsgodkjenning
 
 Bruk merkede testdata; store eksporter og nettverksfeil simuleres i lokal/test-

@@ -10,12 +10,15 @@ export type FlowArea = {
   created_at: string
 }
 
+export type TaskPriority = 'high' | 'normal' | 'low'
 export type FlowTask = {
   id: string
   area_id: string | null
   title: string
   description: string
   deadline_at: string | null
+  week_start: string | null // ISO week's Monday, independent of deadline/Flow's 04:00 day
+  priority: TaskPriority
   created_at: string
   updated_at: string
 } & (
