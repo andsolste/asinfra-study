@@ -90,7 +90,7 @@ test('identical displayed minutes never imply zero: retain distinct untouched mi
 test('zero, touching and disjoint corrections work; future/bounds/positive overlap are rejected', () => {
   const s = snapshot(); s.segments[0].started_at = s.work_day.started_at = '2026-10-22T18:00:00Z'
   assert.equal(nativeCorrectionWork(input(s, { to: '2026-10-22T18:00' })), 0)
-  for (const [draft, message] of [[{ to: '2026-10-22T23:00' }, /fremtiden/], [{ from: '2026-10-22T17:59' }, /arbeidsdagen/],
+  for (const [draft, message] of [[{ to: '2026-10-22T23:00' }, /fremtiden/], [{ from: '2026-10-22T03:59' }, /arbeidsdagen/],
     [{ to: '2026-10-23T04:01' }, /arbeidsdagen/], [{ to: '2026-10-22T17:00' }, /arbeidsdagen/]]) assert.throws(() => input(s, draft), message)
   s.segments[0].ended_at = '2026-10-22T19:00:00Z'
   s.segments.push({ ...s.segments[0], id: id(6), started_at: '2026-10-22T20:00:00Z', ended_at: '2026-10-22T21:00:00Z' })

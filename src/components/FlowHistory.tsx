@@ -59,7 +59,7 @@ export default function FlowHistory({ data, subjects, catalog, onCorrect = data.
           <p className="history-date">Flow-dag{entry.snapshot.segments.length > 0 && ` · ${dayAreas(entry.snapshot.segments, catalog)}`}</p>
         </div><p className="history-work"><span>Arbeidstid</span><strong>{formatDuration(nativeHistoryWork(entry.snapshot))}</strong></p></header>
         <details className="history-periods"><summary>Vis tidslinje · {entry.snapshot.segments.length} arbeidsperioder</summary>
-          <p className="history-date">{entry.snapshot.work_day.timezone} · Første aktivitet {localTime(entry.started_at, entry.snapshot.work_day.timezone)}<br />Avsluttet {localTime(entry.snapshot.work_day.ended_at ?? entry.snapshot.work_day.cutoff_at, entry.snapshot.work_day.timezone)}</p>
+          <p className="history-date">{entry.snapshot.work_day.timezone} · Første aktivitet {localTime(entry.started_at, entry.snapshot.work_day.timezone)}<br />Dagregistreringen lukket {localTime(entry.snapshot.work_day.ended_at ?? entry.snapshot.work_day.cutoff_at, entry.snapshot.work_day.timezone)}</p>
           <ol className="flow-history-timeline">{dayTimeline(entry.snapshot).map(period => {
             const labels = activityName({ areaId: period.areaId, taskId: period.taskId }, catalog)
             const original = entry.snapshot.segments.find(s => s.id === period.segmentId)
