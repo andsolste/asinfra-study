@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FlowTask, TaskPriority } from '../types/flow.ts'
 import { fromLocalDateTime, toLocalDateTime } from './history-time.ts'
-import { mapFlowTask } from './flow-work.ts'
+import { mapFlowTask, recordedDayEnd } from './flow-work.ts'
 import type { FlowSnapshot } from './flow-work.ts'
 import { timestampMicroseconds as micros, serverClockMicroseconds, minMicroseconds, durationMilliseconds, segmentMicroseconds } from './time-precision.ts'
 
@@ -56,7 +56,8 @@ export function deadlineLabel(task: FlowTask, now: number) {
 export function taskDayTime(snapshot: FlowSnapshot | null, taskId: string, now: number) {
   if (!snapshot) return { work: 0, current: 0 }
   const clock = serverClockMicroseconds(now, snapshot.server_time)
-  const end = minMicroseconds(clock, micros(snapshot.work_day.cutoff_at), snapshot.work_day.ended_at ? micros(snapshot.work_day.ended_at) : clock)
+  const recordedEnd = recordedDayEnd(snapshot)
+  const end = minMicroseconds(clock, micros(snapshot.work_day.cutoff_at), recordedEnd ? micros(recordedEnd) : clock)
   let work = 0n, current = 0n
   for (const s of snapshot.segments.filter(s => s.task_id === taskId)) {
     const duration = segmentMicroseconds(s, end)

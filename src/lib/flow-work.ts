@@ -77,8 +77,8 @@ export function mapFlowSnapshot(value: unknown): FlowSnapshot | null {
   const day: FlowWorkDay = { id: id(d.id), logical_date: d.logical_date, timezone: d.timezone,
     boundary_at: timestamp(d.boundary_at), cutoff_at: timestamp(d.cutoff_at), started_at: timestamp(d.started_at),
     ended_at: optionalTime(d.ended_at), created_at: timestamp(d.created_at) }
-  const start = micros(day.started_at), cutoff = micros(day.cutoff_at), end = day.ended_at ? micros(day.ended_at) : cutoff
-  if (micros(day.boundary_at) > start || start >= cutoff || end < start || end > cutoff || !Array.isArray(source.segments)) throw invalid()
+  const start = micros(day.started_at), boundary = micros(day.boundary_at), cutoff = micros(day.cutoff_at), close = day.ended_at ? micros(day.ended_at) : cutoff
+  if (boundary > start || start >= cutoff || close < boundary || close > cutoff || !Array.isArray(source.segments)) throw invalid()
   const segments = source.segments.map(value => {
     const s = row(value)
     return { id: id(s.id), work_day_id: id(s.work_day_id), area_id: optionalId(s.area_id), task_id: optionalId(s.task_id),
@@ -91,7 +91,7 @@ export function mapFlowSnapshot(value: unknown): FlowSnapshot | null {
     const exactFrom = micros(s.started_at), exactTo = s.ended_at === null ? null : micros(s.ended_at)
     const empty = exactTo === exactFrom
     if (seen.has(s.id) || s.work_day_id !== day.id || exactFrom < start || (!empty && exactFrom < previousEnd) || exactFrom >= cutoff
-      || (exactTo !== null && (exactTo < exactFrom || exactTo > end)) || (exactTo === null && day.ended_at !== null)) throw invalid()
+      || (exactTo !== null && (exactTo < exactFrom || exactTo > cutoff)) || (exactTo === null && day.ended_at !== null)) throw invalid()
     seen.add(s.id); if (!empty) previousEnd = exactTo ?? cutoff
   }
   return { work_day: day, segments, server_time: timestamp(source.server_time) }
@@ -104,8 +104,19 @@ export function mapFlowState(value: unknown): FlowState {
     || current?.work_day.ended_at) throw invalid()
   return { current, server_time: server, next_boundary_at: boundary, next_cutoff_at: cutoff, legacy_active: source.legacy_active }
 }
+// Historical corrections may extend past the immutable lifecycle close. The
+// recorded extent determines pauses/timeline; segments remain the work source.
+export function recordedDayEnd(snapshot: FlowSnapshot): string | null {
+  let end = snapshot.work_day.ended_at
+  if (end) for (const segment of snapshot.segments) {
+    if (segment.ended_at && micros(segment.ended_at) > micros(end)) end = segment.ended_at
+  }
+  return end
+}
 export function flowDurations(snapshot: FlowSnapshot, serverNow: number) {
-  const d = snapshot.work_day, end = minMicroseconds(micros(d.cutoff_at), d.ended_at ? micros(d.ended_at) : serverClockMicroseconds(serverNow, snapshot.server_time))
+  const d = snapshot.work_day, recordedEnd = recordedDayEnd(snapshot)
+  const clock = serverClockMicroseconds(serverNow, snapshot.server_time)
+  const end = minMicroseconds(micros(d.cutoff_at), clock, recordedEnd ? micros(recordedEnd) : clock)
   const work = snapshot.segments.reduce((sum, s) => sum + segmentMicroseconds(s, end), 0n)
   const elapsed = positiveMicroseconds(end - micros(d.started_at))
   const open = snapshot.segments.find(s => s.ended_at === null)

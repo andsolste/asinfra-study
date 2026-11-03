@@ -34,7 +34,7 @@ export default function NativePeriodForm({ snapshot, segment, catalog, now, busy
   return <form className="history-form native-period-form" onSubmit={submit}>
     <fieldset disabled={busy || blocked || disabled} aria-describedby={prefix + '-zone'}>
       <legend>{finishOnly ? 'Når sluttet du å jobbe?' : 'Rediger arbeidsperiode'}</legend>
-      <p id={prefix + '-zone'} className="timer-meta">Tidssone: {snapshot.work_day.timezone} (lagret for arbeidsdagen). Hele minutter; urørte tidspunkt beholder full presisjon.</p>
+      <p id={prefix + '-zone'} className="timer-meta">Tidssone: {snapshot.work_day.timezone} (lagret for arbeidsdagen). Hele minutter; urørte tidspunkt beholder full presisjon. Dagsgrenser: {nativeLocalMinute(snapshot.work_day.boundary_at, snapshot.work_day.timezone).replace('T', ' ')}–{nativeLocalMinute(snapshot.work_day.cutoff_at, snapshot.work_day.timezone).replace('T', ' ')}. Slutt kan ikke være i fremtiden.</p>
       {finishOnly ? <p><strong>{segment.task_id ? names.task : names.area}</strong><br />Start: {nativeLocalMinute(segment.started_at, snapshot.work_day.timezone).replace('T', ' ')}</p> : <>
         <div className="auth-field"><label htmlFor={prefix + '-area'}>Område</label><select id={prefix + '-area'} value={draft.area} onChange={e => setDraft({ ...draft, area: e.target.value, task: '' })}>
           <option value="">Annet</option>{draft.area && !catalog.areas.some(a => a.id === draft.area) && <option value={draft.area}>Utilgjengelig historisk område</option>}
@@ -53,7 +53,7 @@ export default function NativePeriodForm({ snapshot, segment, catalog, now, busy
         setDraft({ ...draft, from: originalMinute, to: originalMinute, resetToZero: true }); setValidation(null)
       }}>Sett arbeidstid til 0 min</button>
       <p className="timer-meta" role="status">Arbeidstid etter endring: {preview ?? 'Velg gyldige tidspunkt'}</p>
-      <p className="timer-meta">{draft.resetToZero ? 'Nullstilling valgt: start beholdes og slutt settes til eksakt opprinnelig start, inkludert sekunder og mikrosekunder. Endre et tidsfelt for å oppheve valget.' : 'Nullstilling bruker eksakt opprinnelig start som slutt, ikke det viste minuttet. Velg Lagre korrigering for å lagre.'} Arbeidsdagen og dagsgrensen endres ikke.{finishOnly && ' Etter lagring er Flow pauset. Fortsett må velges eksplisitt.'}</p>
+      <p className="timer-meta">{draft.resetToZero ? 'Nullstilling valgt: start beholdes og slutt settes til eksakt opprinnelig start, inkludert sekunder og mikrosekunder. Endre et tidsfelt for å oppheve valget.' : 'Nullstilling bruker eksakt opprinnelig start som slutt, ikke det viste minuttet. Velg Lagre korrigering for å lagre.'} Logisk dato, tidssone og dagsgrenser beholdes. Dagsstart følger første registrerte periode; en lukket dag gjenåpnes ikke.{finishOnly && ' Etter lagring er Flow pauset. Fortsett må velges eksplisitt.'}</p>
       <button type="submit">{busy ? 'Lagrer og kontrollerer …' : 'Lagre korrigering'}</button>
     </fieldset>
     {(validation || error) && <p role="alert" className="auth-error">{validation ?? error}</p>}

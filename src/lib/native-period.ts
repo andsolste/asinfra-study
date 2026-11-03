@@ -69,7 +69,7 @@ export function buildNativeCorrection(snapshot: FlowSnapshot, segment: FlowWorkS
   const desired = { started_at: draft.resetToZero ? segment.started_at : nativeMinuteInstant(draft.from, zone, segment.started_at),
     ended_at: draft.resetToZero ? segment.started_at : nativeMinuteInstant(draft.to, zone, segment.ended_at), area_id: draft.area || null, task_id: draft.task || null }
   const from = micros(desired.started_at), to = micros(desired.ended_at), day = snapshot.work_day
-  if (from < micros(day.started_at) || from >= micros(day.cutoff_at) || to < from || to > micros(day.ended_at ?? day.cutoff_at)) {
+  if (from < micros(day.boundary_at) || from >= micros(day.cutoff_at) || to < from || to > micros(day.cutoff_at)) {
     throw new Error('Perioden må ligge innenfor arbeidsdagen, med Til lik eller etter Fra.')
   }
   if (Date.parse(desired.ended_at) > now) throw new Error('Sluttid kan ikke være i fremtiden.')

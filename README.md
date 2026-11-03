@@ -106,7 +106,13 @@ mikrosekunder og riktig DST-forekomst eksakt. Et nytt minutt bruker `:00` sekund
 nye ikke-eksisterende eller tvetydige lokale klokkeslett avvises fremfor å gjette.
 Arkivert/fullført/utilgjengelig historisk tilknytning kan beholdes urørt; endret
 oppgave må passe området. Samme absolutte start/slutt gir 0 min uten sletting.
-Arbeidsdagens ID, dato, start, tidssone og frosne grenser kan ikke redigeres.
+Arbeidsdagens ID, logiske dato, tidssone og frosne 04:00-grenser beholdes.
+Perioder kan korrigeres fra `boundary_at` til `cutoff_at`, også før første eller
+etter siste opprinnelige aktivitet; slutt kan aldri være i fremtiden. Dagsstart
+avledes atomisk fra tidligste registrerte segmentstart. Dagregistreringens
+`ended_at` beholdes, og historisk korrigering gjenåpner ikke en lukket dag.
+Arbeid og pauser beregnes fra periodene og deres faktiske utstrekning, slik at
+korrigert arbeid etter den opprinnelige lukkingen ikke klippes bort.
 
 Samme editor finnes under **Arbeid → Dagsdetaljer → Rediger** ved avsluttede
 arbeidsperioder. Pågående perioder må pauses først. Dialogen beholder utkast og
@@ -132,9 +138,16 @@ Task-total, rapport og eksport leser fortsatt canonical segmenter, ikke egne
 manifest avviser endrede data i stedet for å blande før/etter korreksjonen.
 
 **Deployment dependency:** canonical migration
-`asinfra/supabase/migrations/20261022170000_add_flow_segment_correction.sql` må
+`asinfra/supabase/migrations/20261103180000_expand_flow_segment_correction_bounds.sql` må
 gjennomgås og deployes før denne frontenden. Hosted migration krever separat
 godkjenning; den kjøres ikke av frontend eller Pages.
+
+Utrulling: backend-review/merge → kontroll av canonical prosjekt og migrasjonsliste →
+godkjent dry-run/push og hosted API/RLS-verifisering → frontend-review/merge/deploy.
+Backend beholder RPC-signaturen og gammel UI-flyt. Etter at utvidede korrigeringer
+er tatt i bruk, kan eldre frontendversjoner klippe eller avvise disse dataene;
+rollback må derfor beholde den nye lesemodellen. Cutover-markøren flyttes aldri:
+legacy-timeren forblir pensjonert, og faktisk overlapp avvises i begge retninger.
 
 ### Arbeid: Nå, Neste og Etterpå (#27C)
 

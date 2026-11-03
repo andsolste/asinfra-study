@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { mapFlowSnapshot, flowDurations } from './flow-work.ts'
+import { mapFlowSnapshot, flowDurations, recordedDayEnd } from './flow-work.ts'
 import type { FlowSnapshot } from './flow-work.ts'
 import { createHistoryApi, mapHistoryEntry } from './study-history.ts'
 import type { HistoryEntry, HistoryEdit } from './study-history.ts'
@@ -68,7 +68,7 @@ export type TimelinePeriod = { key: string; kind: 'work' | 'pause'; start: strin
 export function dayTimeline(snapshot: FlowSnapshot): TimelinePeriod[] {
   const periods: TimelinePeriod[] = [], d = snapshot.work_day
   const earlier = (a: string, b: string) => micros(a) <= micros(b) ? a : b
-  const end = [d.ended_at ?? d.cutoff_at, d.cutoff_at, snapshot.server_time].reduce(earlier)
+  const end = [recordedDayEnd(snapshot) ?? d.cutoff_at, d.cutoff_at, snapshot.server_time].reduce(earlier)
   let previous = d.started_at
   for (const s of snapshot.segments) {
     const start = s.started_at, stop = earlier(s.ended_at ?? d.cutoff_at, end)

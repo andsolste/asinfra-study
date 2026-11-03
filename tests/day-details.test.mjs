@@ -62,7 +62,7 @@ test('current-day corrections reuse bounds, microsecond zero, overlap validation
   const s=snapshot(),segment=s.segments[0],draft=nativeDraft(s,segment)
   assert.equal(buildNativeCorrection(s,segment,{...draft,to:'2026-11-03T08:30'},now,catalog).desired.started_at,segment.started_at)
   assert.throws(()=>buildNativeCorrection(s,segment,{...draft,to:'2026-11-03T10:30'},now,catalog),/overlapper/)
-  assert.throws(()=>buildNativeCorrection(s,segment,{...draft,from:'2026-11-03T07:59'},now,catalog),/arbeidsdagen/)
+  assert.throws(()=>buildNativeCorrection(s,segment,{...draft,from:'2026-11-03T03:59'},now,catalog),/arbeidsdagen/)
   assert.throws(()=>buildNativeCorrection(s,segment,{...draft,to:'2026-11-04T04:01'},now,catalog),/arbeidsdagen/)
   const zero=buildNativeCorrection(s,segment,{...draft,resetToZero:true},now,catalog)
   assert.equal(zero.desired.ended_at,segment.started_at);assert.equal(zero.expected.ended_at,segment.ended_at)
