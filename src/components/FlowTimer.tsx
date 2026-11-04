@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { FlowWorkspaceData } from '../hooks/useFlowWorkDay'
 import type { FlowHistoryData } from '../hooks/useFlowHistory'
 import { activityName, activityUsable, flowDurations } from '../lib/flow-work'
@@ -12,9 +13,10 @@ import DetailPanel from './DetailPanel'
 import FlowFeedback from './FlowFeedback'
 import NativePeriodForm from './NativePeriodForm'
 
-export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus, mutationBusy = false, history, onCorrect }: {
+export default function FlowTimer({ data, organizationVersion, onCutover, active = true, fallbackFocus, mutationBusy = false, history, onCorrect, focus }: {
   data: FlowWorkspaceData; organizationVersion: readonly { id: string }[]; onCutover: () => void; active?: boolean; fallbackFocus?: HTMLElement | null; mutationBusy?: boolean
   history?: FlowHistoryData; onCorrect?: (input: NativeSegmentCorrection) => Promise<boolean>
+  focus?: ReactNode
 }) {
   const [editor, setEditor] = useState<DayPeriodEditor | null>(null)
   const [correcting, setCorrecting] = useState(false)
@@ -128,6 +130,7 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
         onClick={event => { opener.current = event.currentTarget; setPanel('day') }}>
         <span className="clock-label">Arbeid totalt i dag</span><span className="clock-value">{formatDuration(totals.work)}</span><span className="clock-label">Vis dagsdetaljer →</span>
       </button>
+      {focus}
       <button type="button" className="text-button timer-refresh" disabled={busy} onClick={() => void data.reload()}>Hent status på nytt</button>
     </section>
     <DetailPanel id="flow-details" open={panel !== null} title={panel === 'day' ? 'Dagsdetaljer' : 'Velg aktivitet'}

@@ -34,5 +34,6 @@ export function useFlowWorkDay(owner: string) {
     return () => window.clearTimeout(timer)
   }, [store, state.data])
   return { ...state, now, dispatch: store.dispatch, reload: store.refresh, retry: store.retry,
+    latestRead: store.latestRead,
     interruption, dismissInterruption: monitor.dismiss, pauseInterruption: monitor.pause }
 }

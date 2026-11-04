@@ -149,6 +149,36 @@ er tatt i bruk, kan eldre frontendversjoner klippe eller avvise disse dataene;
 rollback må derfor beholde den nye lesemodellen. Cutover-markøren flyttes aldri:
 legacy-timeren forblir pensjonert, og faktisk overlapp avvises i begge retninger.
 
+### Valgfri fokusrytme (#26)
+
+Under Arbeid-timeren kan hver bruker slå på fokusrytme (av som standard), velge
+25/5, 50/10, 90/15 eller hele minutter innenfor fokus 1–240 / pause 1–60.
+Innstillinger lagres per konto i denne nettleserens localStorage og deles mellom
+faner. De synkroniseres ikke mellom enheter. Blokkert lagring gir innstillinger
+kun i minnet og beskjeder inne i Flow.
+
+Nedtellingen rekonstrueres fra canonical arbeidsperioder og eksisterende
+serverforankret klokke. Sammenhengende aktivitetsskifter beholder fokusperioden;
+et faktisk pausegap starter et nytt fokusmål ved Fortsett, også etter en kort
+pause. Pausen regnes fra siste registrerte sluttid. Målet blir stående som
+fullført til brukeren velger Pause/Fortsett. Fokusfunksjonen skriver aldri
+arbeidsperioder og har ingen egen lagret arbeidstimer. Korrigeringer beregnes fra
+oppdaterte perioder; lagret cutoff (inkludert DST) og eksisterende recovery gjelder.
+Usikker/pending status skjuler nedtellingen til serverstatus er kontrollert.
+
+Beskjeder vises alltid i Flow. Nettleservarsler er et separat valg; tillatelse
+spørres bare ved klikk på «Aktiver nettleservarsler». Før et slikt varsel må en
+ny serverlesing bekrefte gjeldende fase. En Web Lock og en avgrenset, brukerbundet
+liste over sendte fase-ID-er hindrer dobbeltvarsler mellom faner/reload; listen
+inneholder ingen arbeidstider, oppgavenavn eller e-postadresser. Varselet markeres
+som sendt før levering, så en krasjet fane kan miste et OS-varsel, men ikke sende det om igjen.
+Uten låsing/lagring eller ved avvist/ikke støttet Notification API brukes bare
+beskjeder i Flow. Innloggingsbytte/logout ugyldiggjør ventende varsler.
+
+Det er ingen service worker/push: lukket app/nettleser gir ingen varsler, og
+bakgrunn/dvale kan forsinke dem til nettleseren kjører og serverstatus er hentet.
+Ingen varsler eller fokusinnstillinger endrer Pause, Fortsett eller registrert tid.
+
 ### Arbeid: Nå, Neste og Etterpå (#27C)
 
 Arbeidsperioden og Pause/Fortsett er primære; dagens total og Dagsdetaljer er

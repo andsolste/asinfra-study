@@ -169,6 +169,18 @@ p.timer-status.is-loading { color: var(--blue); }
 .flow-period strong { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 600; line-height: 1.15; letter-spacing: -.035em; }
 .flow-period span { color: var(--text-muted); font-size: .8rem; }
 .flow-timer .timer-refresh { margin-top: var(--space-2); }
+.focus-rhythm { margin-top: var(--space-4); padding-top: var(--space-2); border-top: 1px solid var(--border); font-size: .875rem; }
+.focus-rhythm summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 44px; cursor: pointer; color: var(--text-secondary); }
+.focus-rhythm summary::after { content: '+'; color: var(--purple-light); }
+.focus-rhythm details[open] summary::after { content: '−'; }
+.focus-rhythm summary span { margin-left: auto; color: var(--text-muted); font-size: .8rem; }
+.focus-rhythm .focus-toggle { display: flex; align-items: center; gap: .75rem; min-height: 44px; margin: .5rem 0; cursor: pointer; }
+.focus-toggle input { width: 1.125rem; min-height: 1.125rem; height: 1.125rem; margin: 0; accent-color: var(--purple); }
+.focus-lengths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.focus-countdown { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem; margin: .5rem 0; }
+.focus-countdown strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.focus-rhythm .focus-message { margin: .375rem 0; color: var(--text-secondary); }
+@media (max-width: 379px) { .focus-lengths { grid-template-columns: minmax(0, 1fr); } }
 .work-layout:not([hidden]) { display: grid; gap: var(--space-6); align-items: start; }
 .work-layout .task-queue { margin-top: 0; }
 .work-layout .text-button:hover:not(:disabled) { background: var(--surface-elevated); }

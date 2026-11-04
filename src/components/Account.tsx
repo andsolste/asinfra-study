@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import Subjects from './Subjects'
 import AppHeader from './AppHeader'
 import FlowTimer from './FlowTimer'
+import FocusRhythm from './FocusRhythm'
 import FlowHistory from './FlowHistory'
 import FlowStatistics from './FlowStatistics'
 import FlowExport from './FlowExport'
@@ -119,7 +120,7 @@ export default function Account({ session }: { session: Session }) {
         {/* Keep workspace/form state across views; only export is intentionally
             unmounted on close so its snapshot/jobs are cancelled as before. */}
         <div className="work-layout" hidden={location.view !== 'work'}>
-          <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} mutationBusy={history.mutation !== null} history={history} onCorrect={correctNative} />
+          <FlowTimer data={flow} organizationVersion={subjects.subjects} onCutover={history.reload} active={location.view === 'work'} fallbackFocus={panelFallback.current} mutationBusy={history.mutation !== null} history={history} onCorrect={correctNative} focus={<FocusRhythm owner={session.user.id} data={flow} />} />
           <TaskQueue data={flow} onOpen={openTask} onCreate={() => requestTask({ id: null, create: true })} />
           <WeeklyTasks data={flow} onOpen={openTask} />
         </div>
