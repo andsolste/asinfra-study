@@ -33,7 +33,7 @@ export function useFlowWorkDay(owner: string) {
     const timer = window.setTimeout(() => void store.refresh(), Math.max(250, Date.parse(cutoff) - store.now()))
     return () => window.clearTimeout(timer)
   }, [store, state.data])
-  return { ...state, now, dispatch: store.dispatch, reload: store.refresh, retry: store.retry,
+  return { ...state, now, dispatch: store.dispatch, dispatchTimer: store.dispatchTimer, reload: store.refresh, retry: store.retry,
     latestRead: store.latestRead,
     interruption, dismissInterruption: monitor.dismiss, pauseInterruption: monitor.pause }
 }

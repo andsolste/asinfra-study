@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createClient } from '@supabase/supabase-js'
 import { mapFlowSnapshot, mapFlowState, mapFlowArea, mapFlowTask, flowDurations, activityUsable, activityName, createFlowApi, browserTimezone } from '../src/lib/flow-work.ts'
 import { createFlowStore } from '../src/lib/flow-work-store.ts'
+import { pauseActivityCommand, startActivityCommand } from '../src/lib/flow-activity.ts'
 
 const id = n => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const time = h => `2026-10-13T${h}:00Z`
@@ -115,11 +116,18 @@ test('cutover error messages are curated: future legacy data and expired boundar
 
 function storeFixture(initial = null) {
   let value = state(initial), monotonic = 1000, failRead = false, failWrite = false, loseReply = false
+  let nextRead, currentCatalog = catalog
   const commands = []
   const api = {
     snapshot: async () => fixture('ended'),
-    load: async () => { if (failRead) throw new Error('network'); return structuredClone(value) },
-    catalog: async () => structuredClone(catalog),
+    load: async () => {
+      const gate = nextRead
+      nextRead = undefined
+      if (gate) await gate
+      if (failRead) throw new Error('network')
+      return structuredClone(value)
+    },
+    catalog: async () => structuredClone(currentCatalog),
     act: async command => {
       commands.push(structuredClone(command))
       if (failWrite) throw new Error('write')
@@ -136,6 +144,12 @@ function storeFixture(initial = null) {
   }
   const store = createFlowStore(api, { timezone: () => 'UTC', clock: () => monotonic })
   return { store, commands, set: next => { value = next }, advance: ms => { monotonic += ms },
+    holdNextRead: () => {
+      let release
+      nextRead = new Promise(resolve => { release = resolve })
+      return release
+    },
+    setCatalog: next => { currentCatalog = next },
     fails: (read, write = false, lost = false) => { failRead = read; failWrite = write; loseReply = lost } }
 }
 
@@ -162,6 +176,89 @@ test('start/pause/resume/switch transitions keep native IDs; day details remain 
   assert.equal(f.store.getSnapshot().data.current.segments.at(-1).id, switching.nextId)
   assert.equal(flowDurations(f.store.getSnapshot().data.current, f.store.now()).work, 90 * 60000)
   f.store.disconnect()
+})
+
+test('one Pause or Continue click during a background read applies the original command once', async () => {
+  for (const paused of [false, true]) {
+    const f = storeFixture(fixture(paused ? 'paused' : 'running'))
+    f.store.connect(); await tick()
+    const { data } = f.store.getSnapshot()
+    const command = paused
+      ? startActivityCommand({ areaId: null, taskId: null }, data, catalog, () => id(12))
+      : pauseActivityCommand(data)
+    const release = f.holdNextRead()
+    const refresh = f.store.refresh()
+    const action = f.store.dispatchTimer(command)
+    assert.equal(f.store.getSnapshot().timerWaiting, paused ? 'resume' : 'pause')
+    assert.equal(f.store.getSnapshot().pending, null)
+    assert.equal(await f.store.dispatchTimer(command), false)
+    await f.store.refresh() // focus and visibility can both request reads
+    assert.deepEqual(f.commands, [])
+    release()
+    assert.equal(await refresh, true)
+    assert.equal(await action, true)
+    await tick()
+    assert.deepEqual(f.commands, [command])
+    assert.equal(f.store.getSnapshot().timerWaiting, null)
+    assert.equal(f.store.getSnapshot().phase, paused ? 'running' : 'paused')
+    f.store.disconnect()
+  }
+})
+
+test('queued Pause never pauses replacement work, and queued Continue never starts after cutoff or a changed activity', async () => {
+  for (const scenario of ['switched', 'cutoff', 'reassigned', 'archived']) {
+    const paused = scenario !== 'switched'
+    const snapshot = fixture(paused ? 'paused' : 'running')
+    if (scenario === 'archived') snapshot.segments.at(-1).area_id = area.id
+    const f = storeFixture(snapshot)
+    f.store.connect(); await tick()
+    const { data } = f.store.getSnapshot()
+    const command = paused
+      ? startActivityCommand({ areaId: snapshot.segments.at(-1).area_id, taskId: null }, data, catalog, () => id(12))
+      : pauseActivityCommand(data)
+    if (scenario === 'archived') f.setCatalog({ ...catalog, areas: [{ ...area, is_archived: true }] })
+    const release = f.holdNextRead()
+    const refresh = f.store.refresh()
+    const action = f.store.dispatchTimer(command)
+    if (scenario === 'switched') snapshot.segments.at(-1).id = id(91)
+    if (scenario === 'reassigned') snapshot.segments.at(-1).area_id = area.id
+    if (scenario === 'cutoff') f.set(state())
+    else f.set(state(snapshot))
+    await f.store.refresh()
+    release(); await refresh
+    assert.equal(await action, false)
+    await tick()
+    assert.match(f.store.getSnapshot().notice, /ble ikke utført/)
+    assert.equal(f.store.getSnapshot().timerWaiting, null)
+    assert.deepEqual(f.commands, [], scenario)
+    f.store.disconnect()
+  }
+})
+
+test('failed refresh or disconnect drops the queued action, and a write in progress blocks a second click', async () => {
+  for (const failure of ['network', 'disconnect']) {
+    const f = storeFixture(fixture())
+    f.store.connect(); await tick()
+    const command = pauseActivityCommand(f.store.getSnapshot().data)
+    const release = f.holdNextRead()
+    const refresh = f.store.refresh()
+    const action = f.store.dispatchTimer(command)
+    if (failure === 'network') f.fails(true)
+    else f.store.disconnect()
+    release()
+    assert.equal(await refresh, false)
+    assert.equal(await action, false)
+    assert.equal(f.store.getSnapshot().timerWaiting, null)
+    f.fails(false)
+    if (failure === 'disconnect') { f.store.connect(); await tick() }
+    else await f.store.refresh()
+    assert.deepEqual(f.commands, [])
+    const writing = f.store.dispatchTimer(command)
+    assert.equal(await f.store.dispatchTimer(command), false)
+    assert.equal(await writing, true)
+    assert.deepEqual(f.commands, [command])
+    f.store.disconnect()
+  }
 })
 
 test('committed-but-lost reply is reconciled by READ, never auto-replayed with a new token', async () => {
