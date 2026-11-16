@@ -34,6 +34,8 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
   const busy = data.phase === 'loading' || data.phase === 'recovering'
   const panelBusy = busy || mutationBusy || correcting || !!history?.mutation
   const disabled = busy || data.phase === 'error' || mutationBusy || correcting
+  const timerDisabled = data.phase === 'loading' || data.phase === 'error' || mutationBusy || correcting
+    || !!data.pending || !!data.timerWaiting
   const correctionUnavailable = disabled || !!data.pending || history?.status !== 'ready' || !!history?.loadingMore || !!history?.mutation
   const [panel, setPanel] = useState<'activity' | 'day' | null>(null)
   const [areaId, setAreaId] = useState('')
@@ -89,23 +91,31 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
   }
   async function pause() {
     const command = pauseActivityCommand(data.data)
-    if (!command) return
-    await data.dispatch(command)
+    if (command?.kind !== 'activity') return
+    await data.dispatchTimer(command)
     heading.current?.focus()
   }
   async function resume(element: HTMLElement) {
     if (!last || !activityUsable(lastActivity, data.catalog)) { showActivity(element); return }
-    await data.dispatch(startActivityCommand(lastActivity, data.data, data.catalog)); heading.current?.focus()
+    const command = startActivityCommand(lastActivity, data.data, data.catalog)
+    if (command.kind !== 'activity' || command.expectedId !== null) return
+    await data.dispatchTimer(command)
+    heading.current?.focus()
   }
   const status = { loading: 'Henter Flow-dagen …', idle: 'Klar til å arbeide', running: 'Arbeider',
     paused: 'Pauset', recovering: 'Kontrollerer status …', error: 'Status må kontrolleres' }[data.phase]
+  const timerStatus = data.timerWaiting ?? (data.pending?.kind === 'activity'
+    ? data.pending.nextId === null ? 'pause' : data.pending.expectedId === null ? 'resume' : null : null)
+  const statusText = data.phase === 'recovering' && timerStatus
+    ? timerStatus === 'pause' ? 'Pauser …' : 'Fortsetter …'
+    : status
   const notice = <FlowFeedback data={data} />
 
   return <>
     <section className="dashboard-panel timer-section flow-timer" aria-labelledby="flow-timer-title" aria-busy={busy}>
       <header className="panel-heading"><div><p className="section-label">Din Flow-dag</p>
         <h2 id="flow-timer-title" ref={heading} tabIndex={-1}>Arbeid i dag</h2></div>
-        <p className={`timer-status is-${data.phase === 'error' ? 'error' : data.phase === 'running' ? 'running' : data.phase === 'paused' ? 'paused' : disabled ? 'loading' : 'ready'}`} role="status">{status}</p>
+        <p className={`timer-status is-${data.phase === 'error' ? 'error' : data.phase === 'running' ? 'running' : data.phase === 'paused' ? 'paused' : disabled ? 'loading' : 'ready'}`} role="status">{statusText}</p>
       </header>
       {notice}
       {current ? <div className="flow-current">
@@ -115,7 +125,8 @@ export default function FlowTimer({ data, organizationVersion, onCutover, active
         {last && <p className="flow-period"><strong>{formatDuration(periodTime)}</strong><span>{open ? 'denne arbeidsperioden' : 'siste arbeidsperiode'}</span></p>}
         {!open && !lastUsable && <p className="timer-meta">Siste aktivitet er ikke lenger tilgjengelig. Velg en ny aktivitet.</p>}
         <div className="subject-actions timer-controls">
-          {(open || lastUsable) && <button type="button" disabled={disabled} onClick={event => { if (open) void pause(); else void resume(event.currentTarget) }}>{open ? 'Pause' : 'Fortsett'}</button>}
+          {(open || lastUsable) && <button key={`${current.work_day.id}:${open ? 'pause' : 'resume'}:${last?.id}`}
+            type="button" disabled={timerDisabled} onClick={event => { if (open) void pause(); else void resume(event.currentTarget) }}>{open ? 'Pause' : 'Fortsett'}</button>}
           <button type="button" className={open || lastUsable ? 'secondary-button' : undefined} disabled={disabled}
             onClick={event => showActivity(event.currentTarget)}>{!open && !lastUsable ? 'Velg ny aktivitet' : 'Bytt aktivitet'}</button>
         </div>
