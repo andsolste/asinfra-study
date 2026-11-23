@@ -1,5 +1,8 @@
 # ASInfra Flow
 
+Eksamensmodulen åpnes fra **Konto → Eksamener** med samme innlogging.
+Se [arkitektur, lagring, innholdssikkerhet og test/deploymentrekkefølge](src/exams/README.md).
+
 Flow registrerer faktisk arbeidstid og viser områder, oppgaver, historikk og statistikk.
 Produksjon: [flow.asinfra.no](https://flow.asinfra.no/), med HTTPS.
 Domeneflyttingen i #14 ble gjennomført og manuelt verifisert 20. oktober 2026.
@@ -24,8 +27,9 @@ query/hash eller bruker routing, slik at Supabase fortsatt kan håndtere Auth-
 returer. Login, registrering, bekreftelseslenker og kuraterte feil er uendret.
 
 `AppView` viser rolig loading mens session avklares. Bekreftet session uten feil
-går direkte til `Account`; logout gir offentlig oversikt igjen. Bare `Account`
-monterer de private datahookene. Uinnlogget oversikt starter ingen Flow-, område-,
+går direkte til `Account` (eller eksamensmodulen ved `?app=exams`); logout gir
+offentlig oversikt igjen. Private datahooker monteres bare etter bekreftet session.
+Uinnlogget oversikt starter ingen Flow-, eksamens-, område-,
 oppgave-, historikk-, statistikk-, eksport- eller session-reads. Auth-klientens
 vanlige sessionkontroll er fortsatt tillatt. Det åpnes ingen private API-er eller
 RLS-regler. Deling, demo-login og offentlig eksport er ikke implementert.
@@ -55,7 +59,7 @@ Den offentlige oversikten bruker samme Auth- og backendflyt som resten av appen.
 Hovedområdene er **Arbeid**, **Oppgaver** og **Innsikt**. Arbeid beholder timer og
 oppgavekø; Oppgaver er en vanlig hovedvisning. Innsikt samler Oversikt og
 Arbeidslogg, med Eksporter som sekundær dialoghandling. Konto-menyen inneholder
-e-post, Områder og Logg ut. På desktop brukes toppnavigasjon; under 700 px brukes
+e-post, Eksamener, Områder og Logg ut. På desktop brukes toppnavigasjon; under 700 px brukes
 bunnnavigasjon med plass reservert under innholdet. Den skjules når skjermtastaturet
 reduserer visningshøyden under redigering. ASInfra-lenken beholdes i headeren.
 

@@ -70,6 +70,7 @@ h2:target { color: var(--purple-light); }
 .account-menu-content { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 9; display: grid; gap: var(--space-2); width: min(19rem, calc(100vw - 1.5rem)); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface-elevated); }
 .account-menu-content .account-email { margin-bottom: .5rem; }
 .account-menu-content button { text-align: left; }
+.account-menu-content > a.text-button { display: flex; align-items: center; min-height: 44px; text-decoration: none; }
 .work-status { width: min(100%, 60rem); margin: 0 auto var(--space-4); font-size: .8rem; }
 .work-status a { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem 1rem; min-height: 44px; padding: .625rem .875rem; border-left: 2px solid var(--purple-light); background: var(--surface); color: var(--text-secondary); text-decoration: none; overflow-wrap: anywhere; }
 .work-status-label { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

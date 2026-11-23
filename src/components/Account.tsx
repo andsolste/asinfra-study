@@ -107,6 +107,7 @@ export default function Account({ session }: { session: Session }) {
           <summary ref={accountToggle}>Konto</summary>
           <div className="account-menu-content">
             <p className="account-email"><span>Innlogget som</span><strong>{session.user.email ?? 'Flow-bruker'}</strong></p>
+            <a className="text-button" href="?app=exams">Eksamener</a>
             <button className="text-button" type="button" aria-haspopup="dialog" aria-controls="study-details"
               onClick={() => { if (accountToggle.current) showPanel('subjects', accountToggle.current) }}>Områder</button>
             <button className="secondary-button" type="button" disabled={signingOut} onClick={signOut}>{signingOut ? 'Logger ut …' : 'Logg ut'}</button>
