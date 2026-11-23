@@ -1,13 +1,23 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createExamEditor } from '../src/exams/editor.ts'
-import { answerState, resultSummary } from '../src/exams/model.ts'
+import { answerState, canViewFeedback, formatPoints, resultSummary, scoringRule } from '../src/exams/model.ts'
 const fixture=()=>({attempt:{id:'a',revision:0,feedback:'end',submitted_at:null,current_question:2},exam:{title:'Synthetic'},server_time:'2026-11-20T12:00Z',questions:[{number:1,max_points:0,prompt:{fields:[{id:'p1',kind:'text'}]}},{number:2,max_points:2,prompt:{fields:[{id:'p1',kind:'single'},{id:'p2',kind:'single'}]}},{number:3,max_points:4,prompt:{fields:[{id:'p1',kind:'text'}]}},{number:4,max_points:3,prompt:{fields:[{id:'p1',kind:'multiple'}]}}],responses:[]})
 function setup(){let server=fixture(),fail=null,id=0,hold=null
   const api={get:async()=>{if(fail==='offline')throw Error();return structuredClone(server)},save:async p=>{if(hold)await hold;if(fail==='stale')throw Error();if(fail==='offline')throw Error();const old=server.responses.find(r=>r.number===p.number);if((old?.revision??0)!==p.expected)throw Error('stale');const r={number:p.number,answer:p.answer,revision:p.expected+1,submitted_at:p.submit?'now':null,last_request:p.request,auto_points:null,self_assessment:null};server.responses=server.responses.filter(r=>r.number!==p.number).concat(r);server.attempt.revision++;if(fail==='lost')throw Error();return structuredClone(server)},submit:async()=>{server.attempt.submitted_at='now';return structuredClone(server)},assess:async()=>server}
   const editor=createExamEditor(api,()=>String(++id));editor.install(structuredClone(server))
   return {editor,api,get server(){return server},setFail:v=>{fail=v},setHold:v=>{hold=v}}
 }
+test('feedback gates distinguish each/end; versioned copy and fractional points survive reload',()=>{
+  assert.equal(canViewFeedback({feedback:'each',submitted_at:null}),false)
+  assert.equal(canViewFeedback({feedback:'each',submitted_at:null},{submitted_at:'now'}),true)
+  assert.equal(canViewFeedback({feedback:'end',submitted_at:null},{submitted_at:'now'}),false)
+  assert.equal(canViewFeedback({feedback:'end',submitted_at:'now'}),true)
+  assert.match(scoringRule(2),/−1 poeng/);assert.match(scoringRule(),/v1/)
+  assert.equal(formatPoints(.6666),'0,6666')
+  const data=fixture();data.responses=[{number:2,answer:{p1:'a'},auto_points:.6666}]
+  assert.equal(resultSummary(JSON.parse(JSON.stringify(data))).automatic,.6666)
+})
 test('exam answer coverage and split results exclude notes, separate blanks, partial, auto and self',()=>{
   const d=fixture(),q=d.questions[1];assert.equal(answerState(q,{}),'empty');assert.equal(answerState(q,{p1:'a'}),'partial');assert.equal(answerState(q,{p1:'a',p2:'b'}),'complete')
   assert.equal(answerState(d.questions[2],{p1:'   '}),'empty');assert.equal(answerState(d.questions[3],{p1:[]}),'empty')
