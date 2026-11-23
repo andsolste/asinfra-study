@@ -3,6 +3,8 @@ import AppHeader from './components/AppHeader'
 import PublicFlowOverview from './components/PublicFlowOverview'
 import { useAuth } from './hooks/useAuth'
 import { supabase } from './lib/supabase'
+import { lazy, Suspense } from 'react'
+const Exams = lazy(() => import('./exams/ExamApp'))
 
 export default function App() {
   const auth = useAuth()
@@ -16,7 +18,9 @@ export function AppView({ auth: { session, loading, error }, configured }: {
   return (
     <div className="study-shell">
       <a className="skip-link" href="#study-content">Til innhold</a>
-      {configured && !loading && !error && session ? <Account key={session.user.id} session={session} />
+      {configured && !loading && !error && session ? typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('app') === 'exams'
+        ? <Suspense fallback={<main id="study-content" tabIndex={-1}><p role="status">Henter eksamener …</p></main>}><Exams key={session.user.id} session={session} /></Suspense>
+        : <Account key={session.user.id} session={session} />
         : configured && loading ? <>
           <AppHeader />
           <main id="study-content" className="auth-layout" tabIndex={-1}>
