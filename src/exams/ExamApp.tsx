@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase'
 import { examApi } from './api'
 import type { ExamApi, Start } from './api'
 import { createExamEditor } from './editor'
-import { answerState, examUrl, resultSummary } from './model'
+import { answerState, canViewFeedback, examUrl, formatPoints, resultSummary, scoringRule } from './model'
 import type { Catalogue, Guidance } from './model'
-import { GuidanceView, QuestionView } from './QuestionView'
+import { GuidanceView } from './QuestionView'
+import { ReviewedQuestion } from './ReviewedQuestion'
 import './exams.css'
 
 const formatTime=(value:string)=>new Date(value).toLocaleString('nb-NO',{dateStyle:'short',timeStyle:'short'})
@@ -63,8 +64,9 @@ export default function ExamApp({ session, api=examApi }: { session:Session; api
     finally {setLoading(false)}
   }
   async function navigate(number:number){if(await editor.navigate(number)){title.current?.focus();setGuidance(null)}}
+  const canReview=data?canViewFeedback(data.attempt,row):false
   async function showGuide(){
-    if(!data||!question)return
+    if(!data||!question||!canReview)return
     const request=++guidanceRequest.current;setGuideBusy(true);setGuideError(null)
     try{const next=await api.guidance(data.attempt.id,question.number);if(request===guidanceRequest.current)setGuidance(next)}
     catch{if(request===guidanceRequest.current)setGuideError('Kunne ikke hente sensorveiledningen.')}
@@ -78,7 +80,7 @@ export default function ExamApp({ session, api=examApi }: { session:Session; api
       {error&&<div role="alert"><p>{error}</p>{!pendingStart.current&&<button onClick={()=>void loadLocation()}>Hent på nytt</button>}</div>}
       {loading&&<p role="status">Henter eksamen …</p>}
       {catalogue&&<>
-        <header className="view-heading"><h2>Tilgjengelige eksamener</h2><p>Velg eksamen og arbeidsmåte. Svar lagres underveis på kontoen din.</p><p className="muted">Automatiske øvingspoeng krever alle riktige felt og valg i en oppgave, ellers 0. Dette er en forenklet øvingsregel, ikke offisiell sensur.</p></header>
+        <header className="view-heading"><h2>Tilgjengelige eksamener</h2><p>Velg eksamen og arbeidsmåte. Svar lagres underveis på kontoen din.</p><p className="muted">{scoringRule(2)}</p></header>
         {!catalogue.exams.length&&<p>Ingen eksamener er tilgjengelige for kontoen din ennå.</p>}
         {catalogue.exams.length>0&&<fieldset className="exam-settings" disabled={loading||Boolean(pendingStart.current)}><legend>Før du starter</legend>
           <div><label htmlFor="exam-feedback">Fasit</label><select id="exam-feedback" value={feedback} onChange={e=>setFeedback(e.target.value as 'each'|'end')}><option value="end">Etter hele eksamenen</option><option value="each">Etter hver oppgave</option></select></div>
@@ -96,8 +98,8 @@ export default function ExamApp({ session, api=examApi }: { session:Session; api
         <details className="exam-instructions"><summary>Original eksamensinformasjon</summary><p className="exam-original">{data.exam.introduction}</p><p>Klokken er et hjelpemiddel. Den leverer ikke automatisk ved tidsgrensen.</p></details>
         <p>{summary.complete} besvart · {summary.partial} delvis besvart · {summary.unanswered} ubesvart. Merknader teller ikke.</p>
         {data.attempt.submitted_at&&<section className="exam-results" aria-labelledby="result-title"><h3 id="result-title">Resultat for dette forsøket</h3>
-          <p>Automatiske øvingspoeng: <strong>{summary.automatic} / {summary.automaticMax}</strong> · Egenvurdert: <strong>{summary.self} / {summary.selfMax}</strong></p><p>{summary.unassessed} besvarte oppgaver er ikke vurdert · {summary.unanswered} ubesvarte.</p>
-          <p className="muted">Forenklede øvingspoeng: alle felt og valg i en oppgave må være riktige for full uttelling, ellers 0. Dette er ikke den offisielle sensurformelen. Egenvurdering: full / halv / ingen uttelling. Ingen samlet prosent beregnes.</p>
+          <p>Automatiske øvingspoeng: <strong>{formatPoints(summary.automatic)} / {formatPoints(summary.automaticMax)}</strong> · Egenvurdert: <strong>{formatPoints(summary.self)} / {formatPoints(summary.selfMax)}</strong></p><p>{summary.unassessed} besvarte oppgaver er ikke vurdert · {summary.unanswered} ubesvarte.</p>
+          <p className="muted">{scoringRule(data.attempt.scoring_version)} Egenvurdering: full / halv / ingen uttelling. Ingen samlet prosent beregnes.</p>
         </section>}
         <div className="exam-layout">
           <nav className="exam-nav" aria-label="Oppgaver"><details open><summary>Oppgaveoversikt</summary><ol>{data.questions.map(q=>{const r=data.responses.find(r=>r.number===q.number),status=answerState(q,q.number===state.number?state.draft:r?.answer);return <li key={q.number}><button disabled={busy||state.blocked} aria-current={q.number===state.number?'step':undefined} onClick={()=>void navigate(q.number)}><span>{q.number}. {q.title}</span><small>{q.max_points===0?'Merknader':`${r?.submitted_at?'Levert · ':''}${status==='complete'?'Besvart':status==='partial'?'Delvis besvart':'Ubesvart'}`}</small></button></li>})}</ol></details></nav>
@@ -106,12 +108,12 @@ export default function ExamApp({ session, api=examApi }: { session:Session; api
             <h2 id="question-title" ref={title} tabIndex={-1}>{question.title}</h2>
             {question.review_status==='manual'&&<p className="exam-review" role="note">Til manuell kontroll: {question.review_note} Automatisk retting er deaktivert.</p>}
             {question.kind==='visual'&&<p className="muted">Velg plassering i menyene i stedet for å dra. Originalfiguren vises som referanse.</p>}
-            <QuestionView key={question.number} question={question} answer={state.draft} onChange={editor.edit} disabled={locked||state.blocked||state.locking} attempt={data.attempt.id} api={api}/>
+            <ReviewedQuestion key={question.number} question={question} answer={state.draft} onChange={editor.edit} disabled={locked||state.blocked||state.locking} attempt={data.attempt.id} api={api} canReview={canReview} response={row}/>
             <div className="exam-save" role="status">{state.busy?'Lagrer / kontrollerer …':state.blocked?'Lagring må avklares':locked?'Svaret er levert og låst':state.dirty?'Endringer venter på lagring …':'Lagret'}</div>
             {state.error&&<div role="alert"><p>{state.error}</p><div className="exam-actions"><button disabled={busy} onClick={()=>void editor.recover()}>Kontroller lagring</button><button disabled={busy} onClick={()=>void editor.retry()}>Prøv samme lagring igjen</button><button className="secondary-button" disabled={busy} onClick={()=>{if(window.confirm('Forkaste lokalt utkast og hente den lagrede serverversjonen?'))void editor.refresh(true)}}>Hent serverversjon</button></div></div>}
             {!locked&&data.attempt.feedback==='each'&&question.max_points>0&&<button disabled={busy||state.blocked} onClick={()=>{if(window.confirm('Levere og låse svaret på denne oppgaven?'))void editor.save(true)}}>Lever oppgave</button>}
-            {locked&&question.max_points>0&&<>
-              {row?.auto_points!=null&&<p>Automatiske øvingspoeng: {row.auto_points} / {question.max_points}. Alle felt må være riktige for full uttelling.</p>}
+            {canReview&&question.max_points>0&&<>
+              <p className="muted">{scoringRule(data.attempt.scoring_version)}</p>
               <button className="secondary-button" disabled={guideBusy||Boolean(guidance)} onClick={()=>void showGuide()}>{guideBusy?'Henter …':'Vis fasit / sensorveiledning'}</button>
               {guideError&&<p role="alert">{guideError}</p>}{guidance&&<GuidanceView data={guidance} question={question}/>}
               {question.grading!=='automatic'&&<div className="exam-field"><label htmlFor="exam-assessment">Egenvurdering</label><select id="exam-assessment" disabled={busy||state.blocked} value={row?.self_assessment??''} onChange={e=>void editor.assess(e.target.value||null)}><option value="">Ikke vurdert</option><option value="full">Full uttelling</option><option value="partial">Delvis uttelling (halv)</option><option value="none">Ingen uttelling</option></select></div>}

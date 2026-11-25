@@ -18,3 +18,11 @@
 @media(max-width:800px){.exam-layout{grid-template-columns:1fr}.exam-nav{position:static;max-height:16rem;border-block:1px solid #334155}.exam-nav ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem}.exam-nav button{height:100%;font-size:.8rem}.exam-workspace{padding-top:1rem}.exam-heading{align-items:start}.exam-finish{text-align:left}.exam-actions{gap:.5rem}}
 @media(max-width:400px){.exam-nav ol{grid-template-columns:1fr}.exam-settings{padding:.75rem}.exam-actions button{flex:1 1 auto}.exam-heading{display:block}.exam-question{padding:1rem}.exam-options label{padding:.6rem}}
 @media(max-width:800px){.exam-nav{max-height:none}.exam-nav ol{max-height:12rem}}
+.exam-options label.exam-answer-correct,.exam-options label.exam-answer-correct:has(input:checked){border-color:var(--success,#6ee7b7);background:#10312b}
+.exam-options label.exam-answer-incorrect,.exam-options label.exam-answer-incorrect:has(input:checked){border-color:var(--error,#fda4af);background:#381e2a}
+.exam-choice-feedback{display:block;font-size:.85rem;font-weight:500;margin-top:.4rem;overflow-wrap:anywhere}
+.exam-answer-correct .exam-choice-feedback{color:var(--success,#6ee7b7)}
+.exam-answer-incorrect .exam-choice-feedback{color:var(--error,#fda4af)}
+.exam-field.exam-answer-correct select{border-color:var(--success,#6ee7b7)}
+.exam-field.exam-answer-incorrect select{border-color:var(--error,#fda4af)}
+.exam-feedback-summary{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}

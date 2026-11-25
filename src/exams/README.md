@@ -35,16 +35,26 @@ ved fokus/retur til fanen.
 Fasit etter hver oppgave krever først **Lever oppgave**, som låser svaret. Fasit
 til slutt krever **Lever hele eksamenen**. Denne sperren håndheves av backend,
 ikke bare UI. Sensorbilder/nøkler returneres aldri i den vanlige oppgavelesningen.
-Fasit lastes først ved et eksplisitt knappetrykk etter innlevering. Gamle svar fra
+Lettvekts svarmarkeringer lastes automatisk fra `exam_feedback` etter lovlig innlevering, uten sensorbilder. Grønn hake/tekst viser riktige valg og rødt kryss/tekst feilvalg. Uvalgte riktige synliggjøres; nedtrekk viser riktig alternativ og antall riktige koblinger. Sensorbilder lastes fortsatt bare ved eksplisitt knappetrykk. Gamle svar fra
 nettverket kan ikke vise veiledning på feil oppgave.
 
 Øvingsmodus har ingen tidsgrense. Eksamensmodus kan vise medgått tid, forankret
 i serverens start-/referansetid. Klokken leverer aldri automatisk. Original
 eksamensvarighet vises som informasjon.
 
-Automatiske øvingspoeng krever alle riktige felter og hele riktige valgsettet per
-oppgave; ellers 0. Dette er ikke en offisiell delpoeng-/trekkformel. Langsvar og
-uverifiserte oppgaver kan egenvurderes full/halv/ingen eller ikke vurdert.
+Backend lagrer poengregelens versjon per forsøk. Eksisterende forsøk beholder v1
+(alle riktige/ellers 0), også når de gjenopptas etter migrasjonen. Nye forsøk bruker
+v2: flervalg får proporsjonal positiv uttelling, −1 per feilvalg og gulv 0.
+Maks poeng endres ikke. Andre automatiske typer beholder alle-felt-riktige-regelen.
+Poeng og felt-/valgopptelling kommer fra serveren, ikke en klientberegning. Fire
+desimaler støttes. Regelversjonen forklares i resultatet. Dette er ikke bekreftet
+offisiell sensur. Langsvar og oppgave 41 beholder egenvurdering/ingen automatisk retting.
+
+Feedback er bundet til forsøk, oppgave og svarrevisjon. Gamle nettverkssvar forkastes
+ved navigasjon/ny revisjon. Feil gir eksplisitt retry uten å endre lagrede poeng eller
+editorens utkast. `exam_feedback` må være deployet før denne frontenden. Den deler
+backendens innleveringsport med sensorveiledningen. Ingen hosted endring utføres her.
+
 Ingen AI-sensur eller samlet resultatprosent. Offisiell veiledning vises som
 kildebelagte originale utsnitt; disse har ikke full skjermlesertranskripsjon ennå.
 Figurer kan forstørres med lokalt rulleområde uten å utvide mobilbredden.
