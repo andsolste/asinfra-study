@@ -14,7 +14,14 @@ test('exam native fields, original text, locked answers and source-labelled guid
   assert.match(html,/Nøyaktig tekst: kommando --flag/);assert.match(html,/type="radio"/);assert.match(html,/type="checkbox"/);assert.match(html,/<select/);assert.match(html,/<textarea/);assert.match(html,/Mitt svar/)
   assert.doesNotMatch(html,/Sensorveiledning|correct|fasit/)
   const locked=renderToStaticMarkup(createElement(QuestionView,{...props,disabled:true}));assert.equal((locked.match(/disabled=""/g)??[]).length,4)
-  const guide=renderToStaticMarkup(createElement(GuidanceView,{question:q,data:{source_name:'Synthetic PDF',pages:[1],correct:{p0:'a'},assets:[]}}));assert.match(guide,/Offisiell sensorveiledning/);assert.match(guide,/Synthetic PDF/);assert.match(guide,/Ingen AI-sensur/)
+  const {isAiMaterial}=await server.ssrLoadModule('/src/exams/model.ts')
+  const guidance={question:q,data:{source_name:'Synthetic PDF',pages:[1],correct:{p0:'a'},assets:[]}}
+  const guide=renderToStaticMarkup(createElement(GuidanceView,{...guidance,ai:isAiMaterial('dcst2001-h25')}));
+  assert.match(guide,/Offisiell sensorveiledning/);assert.match(guide,/Synthetic PDF/);assert.match(guide,/Ingen AI-sensur/)
+  const aiGuide=renderToStaticMarkup(createElement(GuidanceView,{...guidance,ai:isAiMaterial('dcst2001-ai-h26-01')}));
+  assert.match(aiGuide,/AI-generert løsningsveiledning/);assert.match(aiGuide,/del 1/)
+  assert.doesNotMatch(aiGuide,/Offisiell sensorveiledning|Ingen AI-sensur eller AI-genererte løsningsforslag brukes/)
+  assert.equal(isAiMaterial('original-dcst2001-ai-h26-01'),false)
   const feedback={available:true,correct:{p0:'b',p1:['a','b'],p2:'a'}}
   const reviewed=renderToStaticMarkup(createElement(QuestionView,{...props,disabled:true,feedback}))
   assert.equal((reviewed.match(/Riktig svar – ikke valgt/g)??[]).length,2)
