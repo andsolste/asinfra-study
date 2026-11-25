@@ -40,3 +40,6 @@ export function examUrl(attempt?: string) {
   if (attempt) url.searchParams.set('attempt',attempt)
   url.hash = ''; return url.pathname + url.search
 }
+
+// The catalogue and attempt both expose this reserved exam ID format.
+export const isAiMaterial = (examId: string) => /^dcst2001-ai-h26-[0-9]{2}$/.test(examId)

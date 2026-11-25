@@ -35,11 +35,12 @@ export function QuestionView({ question:q, answer, onChange, disabled, attempt, 
     :b.type==='image'?<PromptImage key={index} block={b} attempt={attempt} api={api}/>
       :<AnswerField key={index} number={q.number} field={q.prompt.fields.find(f=>f.id===b.id)!} value={answer[b.id]} disabled={disabled} correct={feedback?.available?feedback.correct[b.id]:undefined} onChange={v=>onChange({...answer,[b.id]:v})}/>)}</div>
 }
-export function GuidanceView({ data, question }: { data:Guidance; question:Question }) {
-  return <section className="exam-guidance" aria-labelledby="guidance-title"><h3 id="guidance-title">Offisiell sensorveiledning</h3>
-    <p className="muted">Kilde: {data.source_name} · side {data.pages.join(', ')}. Originale markeringer vises nedenfor.</p>
+export function GuidanceView({ data, question, ai }: { data:Guidance; question:Question; ai:boolean }) {
+  const label=ai?'AI-generert løsningsveiledning':'Offisiell sensorveiledning'
+  return <section className="exam-guidance" aria-labelledby="guidance-title"><h3 id="guidance-title">{label}</h3>
+    <p className="muted">Kilde: {data.source_name} · {ai?'del':'side'} {data.pages.join(', ')}. {ai?'Ikke offisiell NTNU-fasit.':'Originale markeringer vises nedenfor.'}</p>
     {Object.keys(data.correct).length>0 && <dl>{question.prompt.fields.map(f=><div key={f.id}><dt>{f.label}</dt><dd>{(Array.isArray(data.correct[f.id])?data.correct[f.id] as string[]:[data.correct[f.id]]).map(id=>f.options?.find(o=>o.id===id)?.text).join(' · ')}</dd></div>)}</dl>}
-    {data.assets.map((a,i)=><figure key={a.id}><div className="exam-image-scroll" tabIndex={0} role="region" aria-label={`Sensorveiledning, utsnitt ${i+1}`}><img src={`data:image/png;base64,${a.base64}`} alt={`Offisiell sensorveiledning til oppgave ${question.number}, utsnitt ${i+1}.`} /></div></figure>)}
-    <p className="muted">Ingen AI-sensur eller AI-genererte løsningsforslag brukes.</p>
+    {data.assets.map((a,i)=><figure key={a.id}><div className="exam-image-scroll" tabIndex={0} role="region" aria-label={`${ai?'AI-løsningsveiledning':'Sensorveiledning'}, utsnitt ${i+1}`}><img src={`data:image/png;base64,${a.base64}`} alt={`${label} til oppgave ${question.number}, utsnitt ${i+1}.`} /></div></figure>)}
+    <p className="muted">{ai?'Oppgaver og løsningsveiledning er AI-generert øvingsmateriale. Rettingen følger de vanlige øvingsreglene; ingen AI-tjeneste vurderer besvarelsen.':'Ingen AI-sensur eller AI-genererte løsningsforslag brukes.'}</p>
   </section>
 }
